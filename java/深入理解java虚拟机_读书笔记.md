@@ -1,7 +1,7 @@
 
 
 * [java内存区域与内存溢出异常（第二章）](#java内存区域与内存溢出异常第二章)  
-		* [jvm运行时数据区分为两大部分](#jvm运行时数据区分为两大部分)  		
+		* [jvm运行时数据区分为两大部分](#jvm运行时数据区分为两大部分)  
 		* [java.lang.OutOfMemoryError(OOM)的几种情况：](#javalangoutofmemoryerroroom的几种情况)  
 		* [new对象的过程：](#new对象的过程)  
 		* [对象在堆内存中的存储布局：](#对象在堆内存中的存储布局)  
