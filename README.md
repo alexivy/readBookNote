@@ -4,7 +4,7 @@
 ## Redis  
 [Redis设计与实现_读书笔记](https://github.com/alexivy/readBookNote/blob/master/redis/Redis%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0_%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0.md)  
 ## MySQL  
-[MySQL技术内幕：SQL编程_读书笔记](mysql\MySQL技术内幕：SQL编程_读书笔记.md)(整理中)  
+[MySQL技术内幕：SQL编程_读书笔记](/mysql/MySQL技术内幕：SQL编程_读书笔记.md)(整理中)  
 
 [MySQL技术内幕：InnoDB存储引擎_读书笔记](/mysql/MySQL技术内幕：InnoDB存储引擎_读书笔记.md)(整理中)  
 ## MarkDown  
