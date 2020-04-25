@@ -7,23 +7,22 @@
   - [上下标](#上下标)
 # 编辑器
 [ visual studio code ] + extension [ Markdown All in One ]   
-可实时预览，可生成适配github的目录。  
+可实时预览，可生成适配github的目录，集成git。  
 [ visual studio code ]中显示空格，在file=>preference=>setting中设置Render Whitespace为all。  
 
 # markdown
 ## 代码
 格式：  
-```
-前有一空行，且行首为四个空格或一个TAB
-或（```）开头结尾
 
-    code A
+    前有一空行，且行首为四个空格或一个TAB
+    或```开头结尾
 
-    code B
+        code A
+
+        code B
     ```
     code C
     ```
-```
 效果：  
 行首为一个TAB
 
@@ -38,7 +37,7 @@ code C
 ## 表格  
 格式：  
 ```
-| qq | dianhua | id |  
+| 表头1 | 表头2 | 表头3 |  
 | :- | :-: | -: |  
 |左对齐|居中|右边对齐|  
 |1行<br>2行| <br>2行| 1行 |  
@@ -73,3 +72,5 @@ code C
 效果：  
 H<sub>2</sub>O  
 Coca Cola<sup>TM</sup>  
+
+to be continue..
