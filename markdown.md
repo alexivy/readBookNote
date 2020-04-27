@@ -5,6 +5,7 @@
   - [表格](#表格)
   - [链接](#链接)
   - [上下标](#上下标)
+  - [如何实现跳转至非标题目标（待探索）](#如何实现跳转至非标题目标待探索)
 # 编辑器
 [ visual studio code ] + extension [ Markdown All in One ]   
 可实时预览，可生成适配github的目录，集成git。  
@@ -73,4 +74,7 @@ code C
 H<sub>2</sub>O  
 Coca Cola<sup>TM</sup>  
 
-to be continue..
+## 如何实现跳转至非标题目标（待探索）  
+可以在不影响目录的前提下跳转。  
+
+to be continue..  
