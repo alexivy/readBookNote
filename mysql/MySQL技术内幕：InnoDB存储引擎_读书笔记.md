@@ -1,7 +1,7 @@
 基于原书第二版。  
 
 - [第5章 索引与算法（待完善）](#第5章-索引与算法待完善)
-- [index](#index)
+  - [introduce](#introduce)
   - [概述](#概述)
   - [B+树索引的管理](#b树索引的管理)
     - [Fast Index Creation](#fast-index-creation)
@@ -13,9 +13,11 @@
     - [全文检索](#全文检索-1)
       - [NATURAL LANGUAGE](#natural-language)
 
+
 # 第5章 索引与算法（待完善）  
-# index  
-看目录感觉和《MySQL技术内幕：SQL编程》中的 第九章 索引内容差不多，相近部分结合[此处](/mysql/MySQL技术内幕：SQL编程_读书笔记.md)查看。此处只补充一些不同的部分。  
+
+## introduce
+说明：看目录感觉和《MySQL技术内幕：SQL编程》中的 第九章 索引内容差不多，相近部分结合[MySQL技术内幕：SQL编程_读书笔记](/mysql/MySQL技术内幕：SQL编程_读书笔记.md#introduce)查看。此处只补充一些不同的部分。  
 
 ## 概述  
 
