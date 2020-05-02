@@ -1,15 +1,150 @@
 - [Mybatis的使用](#mybatis的使用)
-  - [一对多关联映射的二种方法](#一对多关联映射的二种方法)
+  - [工具类](#工具类)
+    - [SQL](#sql)
+    - [MetaObject](#metaobject)
+    - [ObjectFactory](#objectfactory)
+    - [ProxyFactory](#proxyfactory)
+  - [核心组件](#核心组件)
+    - [Configuration](#configuration)
+  - [配置文件](#配置文件)
+    - [Mapper配置文件](#mapper配置文件)
+  - [映射](#映射)
+    - [一对多关联映射的二种方法](#一对多关联映射的二种方法)
   - [一对一关联映射的二种方法](#一对一关联映射的二种方法)
 - [MyBatis的原理](#mybatis的原理)
-  - [MyBatis如何执行查询](#mybatis如何执行查询)
-    - [调用流程及对应源码](#调用流程及对应源码)
+  - [MyBatis涉及的类型转换](#mybatis涉及的类型转换)
+    - [MyBaits如何为SQL语句设置参数](#mybaits如何为sql语句设置参数)
     - [MyBaits如何处理SQL语句查询结果](#mybaits如何处理sql语句查询结果)
+  - [SqlSession的创建过程](#sqlsession的创建过程)
+  - [MyBatis如何执行查询](#mybatis如何执行查询)
+    - [查询流程及对应源码](#查询流程及对应源码)
 - [参考书籍](#参考书籍)
 
 # Mybatis的使用  
 
-## 一对多关联映射的二种方法  
+## 工具类  
+
+### SQL  
+
+在Java代码中动态构建SQL语句。
+
+    String sql=new SQL().INSERT_INTO("PERSON")
+                .VALUES("ID,FIRST_NAME","#{id},#{firstName}")
+                .VALUES("LAST_NAME","#{lastName}").toString();
+
+### MetaObject  
+
+MetaObject是MyBatis中的反射工具类，使用MetaObject工具类，我们可以方便地获取和设置对象的属性值。  
+
+<details>
+    <summary>点击查看示例代码</summary>
+
+    static class User{
+        List<Order> orders;
+        String name;
+
+        public User(List<Order> orders, String name) {
+            this.orders = orders;
+            this.name = name;
+        }
+    }
+
+    static class Order{
+        String orderNo;
+        String goodsName;
+
+        public Order(String orderNo, String goodsName) {
+            this.orderNo = orderNo;
+            this.goodsName = goodsName;
+        }
+    }
+
+    public static void main(String[] args) {
+        List<Order> orders=new ArrayList<Order>(){{
+            add(new Order("13241421","phone"));
+            add(new Order("12314314","house"));
+        }};
+        User user=new User(orders,"people");
+        MetaObject metaObject= SystemMetaObject.forObject(user);
+        System.out.println(metaObject.getValue("orders[0].goodsName"));
+    }
+
+</details>
+
+### ObjectFactory  
+
+ObjectFactory是MyBatis中的对象工厂，MyBatis每次创建Mapper映射结果对象的新实例时，都会使用一个对象工厂（ObjectFactory）实例来完成。ObjectFactory接口只有一个默认的实现，即DefaultObjectFactory，默认的对象工厂需要做的仅仅是实例化目标类，要么通过默认构造方法，要么在参数映射存在的时候通过参数构造方法来实例化。  
+
+### ProxyFactory  
+
+ProxyFactory是MyBatis中的代理工厂，主要用于创建动态代理对象，ProxyFactory接口有两个不同的实现，分别为CglibProxyFactory和JavassistProxyFactory。从实现类的名称可以看出，MyBatis支持两种动态代理策略，分别为Cglib和Javassist动态代理。ProxyFactory主要用于实现MyBatis的懒加载功能。  
+
+## 核心组件
+
+![MyBatis核心组件](/mybatis/MyBatisP001.PNG)  
+MyBatis核心组件( 图源自[参考书籍1](#ref001) )  
+
+MyBatis使用StatementHandler组件控制JDBC的Statement对象，进而对数据库进行操作。[完整流程](#mybatis如何执行查询)  
+MyBatis通过ResultSetHandler组件从Statement对象中获取ResultSet对象，然后将ResultSet对象转换为Java对象。[转换为Java对象的详细过程](#mybaits如何处理sql语句查询结果)  
+
+各组件的作用如下：  
+<details>
+    <summary> 点击查看各组件 </summary>
+
+Configuration：用于描述MyBatis的主配置信息，其他组件需要获取配置信息时，直接通过Configuration对象获取。除此之外，MyBatis在应用启动时，将Mapper配置信息、类型别名、TypeHandler等注册到Configuration组件中，其他组件需要这些信息时，也可以从Configuration对象中获取。  
+
+MappedStatement：MappedStatement用于描述Mapper中的SQL配置信息，是对Mapper XML配置文件中<select|update|delete|insert>等标签或者@Select/@Update等注解配置信息的封装。  
+
+SqlSession：SqlSession是MyBatis提供的面向用户的API，表示和数据库交互时的会话对象，用于完成数据库的增删改查功能。SqlSession是Executor组件的外观，目的是对外提供易于理解和使用的数据库操作接口。  
+
+Executor：Executor是MyBatis的SQL执行器，MyBatis中对数据库所有的增删改查操作都是由Executor组件完成的。  
+
+StatementHandler：StatementHandler封装了对JDBCStatement对象的操作，比如为Statement对象设置参数，调用Statement接口提供的方法与数据库交互，等等。  
+
+ParameterHandler：当MyBatis框架使用的Statement类型为CallableStatement和PreparedStatement时，ParameterHandler用于为Statement对象参数占位符设置值。  
+
+[ResultSetHandler](#handleresultsets)：ResultSetHandler封装了对JDBC中的ResultSet对象操作，当执行SQL类型为SELECT语句时，ResultSetHandler用于将查询结果转换成Java对象。  
+
+TypeHandler：TypeHandler是MyBatis中的类型处理器，用于处理Java类型与JDBC类型之间的映射。它的作用主要体现在能够根据Java类型调用PreparedStatement或CallableStatement对象对应的setXXX()方法为Statement对象设置值，而且能够根据Java类型调用ResultSet对象对应的getXXX()获取SQL执行结果。  
+
+</details>
+
+### Configuration  
+
+在MyBatis框架启动时，会对所有的配置信息（TypeHandler（类型处理器）、TypeAlias（类型别名）、Mapper接口及Mapper SQL的配置等等）进行解析，然后将解析后的内容注册到Configuration对象的这些属性中。除此之外，Configuration组件还作为Executor、StatementHandler、ResultSetHandler、ParameterHandler组件的工厂类，用于创建这些组件的实例。  
+
+*** Executor ***  
+
+MyBatis提供了3种不同的Executor，分别为SimpleExecutor、ReuseExecutor、BatchExecutor，这些Executor都继承至BaseExecutor。  
+Executor与数据库交互需要Mapper配置信息，MyBatis通过MappedStatement对象描述Mapper的配置信息，Configuration.getMappedStatement()方法可获取对应的对象。  
+
+*** MappedStatement ***  
+
+MyBatis通过MappedStatement描述\<select\|update\|insert\|delete\>或者@Select、@Update等注解配置的SQL信息。  
+
+
+## 配置文件  
+  
+### Mapper配置文件  
+
+\<select\>标签中的属性  
+
+    <select id="getUserById"
+    parameterType="int"  //可选
+    parameterMap="Deprecated"  //Deprecated
+    resultType="hashmap"  //如果返回结果是集合类型，则resultType属性应该指定集合中可以包含的类型，而不是集合本身。
+    resultMap="userResultMap"  //resultMap和resultType属性不能同时使用
+    flushCache="false"  
+    useCache="true"  //是否使用二级缓存,对select标签，该属性的默认值为true。
+    timeout="10000"  
+    fetchSize="256"  //指定SQL执行后返回的最大行数。
+    statementType="PREPARED"  //与数据库交互的Statement
+    resultSetType="FORWARD_ONLY"
+    >
+
+## 映射  
+
+### 一对多关联映射的二种方法  
 
 MyBatis的Mapper配置中提供了一个\<collection\>标签，用于建立实体间一对多的关系。MyBatis在执行getUserByIdFull查询时先后执行了两条查询语句。第一条语句查询用户信息，第二条（即使resultMap.collection.select属性指定的查询）语句查询用户关联的订单信息。  
 
@@ -96,17 +231,93 @@ join子句实现：
 
 # MyBatis的原理  
 
-MyBatis的ORM  
+## MyBatis涉及的类型转换  
 
-在创建SqlSession实例后，需要调用SqlSession的getMapper()方法获取一个UserMapper的引用，然后通过该引用调用Mapper接口中定义的方法。SqlSession对象的getMapper()方法返回的是一个动态代理对象。MyBatis中通过MapperProxy类实现动态代理。MapperProxy使用的是JDK内置的动态代理。  
+MyBatis涉及Java类型和JDBC类型转换的两种情况如下：  
+1. PreparedStatement对象为参数占位符设置值时，需要调用PreparedStatement接口中提供的一系列的setXXX()方法，将Java类型转换为对应的JDBC类型并为参数占位符赋值。  
+2. 执行SQL语句获取ResultSet对象后，需要调用ResultSet对象的getXXX()方法获取字段值，此时会将JDBC类型转换为Java类型。  
 
-Java语言中比较常用的实现动态代理的方式有两种，即JDK内置动态代理和CGLIB动态代理。  
+MyBatis中使用TypeHandler解决上面两种情况，MyBatis中的BaseTypeHandler类实现了TypeHandler接口。  
+
+### MyBaits如何为SQL语句设置参数  
+
+即类型转换第一种情况对应的场景：  
+
+ParameterHandler的作用是为SQL语句中的参数占位符设置值。ParameterHandler接口只有一个默认的实现类，即DefaultParameterHandler，在DefaultParameterHandler类的setParameters()方法中，首先获取Mapper配置中的参数映射，然后对所有参数映射信息进行遍历，接着根据参数名称获取对应的参数值，调用对应的TypeHandler对象的setParameter()方法为Statement对象中的参数占位符设置值。  
+
+
+<p id="handleresultsets"></p>  
+
+### MyBaits如何处理SQL语句查询结果  
+
+即类型转换第二种情况对应的场景：  
+
+ResultSetHandler用于在StatementHandler对象执行完查询操作或存储过程后，对结果集或存储过程的执行结果进行处理。ResultSetHandler接口只有一个默认的实现，即DefaultResultHandler。  
+
+DefaultResultSetHandler类的handleResultSets()方法具体逻辑如下：
+1. 首先从Statement对象中获取ResultSet对象，然后将ResultSet包装为ResultSetWrapper对象，通过ResultSetWrapper对象能够更方便地获取数据库字段名称以及字段对应的TypeHandler信息。  
+2. 获取Mapper SQL配置中通过resultMap属性指定的ResultMap信息，一条SQL Mapper配置一般只对应一个ResultMap。  
+3. 调用handleResultSet()方法对ResultSetWrapper对象进行处理，将结果集转换为Java实体对象，然后将生成的实体对象存放在multipleResults列表中。  
+4. 调用collapseSingleResultList()方法对multipleResults进行处理，如果只有一个结果集，就返回结果集中的元素，否则返回多个结果集。  
+
+<details>
+    <summary>点击查看esultSetHandler的handleResultSets方法
+    </summary>
+    
+```
+public List<Object> handleResultSets(Statement stmt) throws SQLException {
+    final List<Object> multipleResults = new ArrayList<Object>();
+
+    int resultSetCount = 0;
+    ResultSetWrapper rsw = getFirstResultSet(stmt);
+
+    List<ResultMap> resultMaps = mappedStatement.getResultMaps();
+    int resultMapCount = resultMaps.size();
+    validateResultMapsCount(rsw, resultMapCount);
+    while (rsw != null && resultMapCount > resultSetCount) {
+    ResultMap resultMap = resultMaps.get(resultSetCount);
+    handleResultSet(rsw, resultMap, multipleResults, null);
+    rsw = getNextResultSet(stmt);
+    cleanUpAfterHandlingResultSet();
+    resultSetCount++;
+    }
+
+    String[] resultSets = mappedStatement.getResulSets();
+    if (resultSets != null) {
+    while (rsw != null && resultSetCount < resultSets.length) {
+        ResultMapping parentMapping = nextResultMaps.get(resultSets[resultSetCount]);
+        if (parentMapping != null) {
+        String nestedResultMapId = parentMapping.getNestedResultMapId();
+        ResultMap resultMap = configuration.getResultMap(nestedResultMapId);
+        handleResultSet(rsw, resultMap, null, parentMapping);
+        }
+        rsw = getNextResultSet(stmt);
+        cleanUpAfterHandlingResultSet();
+        resultSetCount++;
+    }
+    }
+
+    return collapseSingleResultList(multipleResults);
+}
+```
+
+</details>
+
+## SqlSession的创建过程  
+
+框架在启动时会解析MyBatis主配置文件及所有Mapper文件，将配置信息转换为Configuration对象。在创建SqlSession对象之前，需要先创建SqlSessionFactory对象（SqlSessionFactory.build()方法返回一个此对象）。SqlSessionFactory对象中持有Configuration对象的引用。有了SqlSessionFactory对象后，调用SqlSessionFactory对象的openSession()方法即可创建SqlSession对象。  
+
+
+
+
 
 ## MyBatis如何执行查询  
 
-MyBatis执行查询的大致流程：写代码时定义的是Mapper接口及其中的方法，MyBatis会生成Mapper对应的动态代理对象，在通过代理对象调用Mapper接口中定义的方法时，会执行代理对象中的拦截逻辑，将Mapper方法的调用转换为调用SqlSession提供的API方法。在SqlSession的API方法中通过Mapper的Id找到对应的MappedStatement对象，获取对应的SQL信息，通过StatementHandler操作JDBC的Statement对象完成与数据库的交互，然后通过[ResultSetHandler](#handleresultsets)处理结果集，将结果返回给调用者。  
+在创建SqlSession实例后，需要调用SqlSession的getMapper()方法获取一个UserMapper的引用，然后通过该引用调用Mapper接口中定义的方法。SqlSession对象的getMapper()方法返回的是一个动态代理对象。MyBatis中通过MapperProxy类实现动态代理。MapperProxy使用的是JDK内置的动态代理。  
 
-### 调用流程及对应源码  
+MyBatis执行查询的大致流程：写代码时定义的是Mapper接口及其中的方法，MyBatis会生成Mapper对应的动态代理对象，在通过代理对象调用Mapper接口中定义的方法时，会执行代理对象中的拦截逻辑，将Mapper方法的调用转换为调用SqlSession提供的API方法。在SqlSession的API方法中通过Mapper的Id找到对应的MappedStatement对象，获取对应的SQL信息，通过StatementHandler操作JDBC API的Statement对象完成与数据库的交互，然后通过[ResultSetHandler](#handleresultsets)处理结果集，将结果返回给调用者。  
+
+### 查询流程及对应源码  
 
 MyBatis版本3.2.5。  
 
@@ -328,7 +539,7 @@ prepareStatement方法首先获取JDBC中的Connection对象，然后调用State
     </blockcode></pre>
 </details>
 
-MyBatis默认情况下会使用PreparedStatementHandler与数据库交互。在PreparedStatementHandler的query()方法中，首先调用PreparedStatement对象的execute()方法（注：JDBC及数据库相应驱动实现）执行SQL语句，然后调用ResultSetHandler的[handleResultSets](#handleresultsets)方法处理结果集。  
+MyBatis默认情况下会使用PreparedStatementHandler与数据库交互。在PreparedStatementHandler的query()方法中，首先调用PreparedStatement对象的execute()方法（注：JDBC API）执行SQL语句，然后调用ResultSetHandler的[handleResultSets](#handleresultsets)方法处理结果集。  
 对应源码：
 
     public <E> List<E> query(Statement statement, ResultHandler resultHandler) throws SQLException {
@@ -339,58 +550,13 @@ MyBatis默认情况下会使用PreparedStatementHandler与数据库交互。在P
 
 
 
-<p id="handleresultsets"></p>  
 
-### MyBaits如何处理SQL语句查询结果  
 
-DefaultResultSetHandler类的handleResultSets()方法具体逻辑如下：
-1. 首先从Statement对象中获取ResultSet对象，然后将ResultSet包装为ResultSetWrapper对象，通过ResultSetWrapper对象能够更方便地获取数据库字段名称以及字段对应的TypeHandler信息。  
-2. 获取Mapper SQL配置中通过resultMap属性指定的ResultMap信息，一条SQL Mapper配置一般只对应一个ResultMap。  
-3. 调用handleResultSet()方法对ResultSetWrapper对象进行处理，将结果集转换为Java实体对象，然后将生成的实体对象存放在multipleResults列表中。  
-4. 调用collapseSingleResultList()方法对multipleResults进行处理，如果只有一个结果集，就返回结果集中的元素，否则返回多个结果集。  
 
-<details>
-    <summary>点击查看esultSetHandler的handleResultSets方法
-    </summary>
-    
-```
-public List<Object> handleResultSets(Statement stmt) throws SQLException {
-    final List<Object> multipleResults = new ArrayList<Object>();
+<!-- ## MyBatis启动时进行了哪些工作   -->
 
-    int resultSetCount = 0;
-    ResultSetWrapper rsw = getFirstResultSet(stmt);
 
-    List<ResultMap> resultMaps = mappedStatement.getResultMaps();
-    int resultMapCount = resultMaps.size();
-    validateResultMapsCount(rsw, resultMapCount);
-    while (rsw != null && resultMapCount > resultSetCount) {
-    ResultMap resultMap = resultMaps.get(resultSetCount);
-    handleResultSet(rsw, resultMap, multipleResults, null);
-    rsw = getNextResultSet(stmt);
-    cleanUpAfterHandlingResultSet();
-    resultSetCount++;
-    }
 
-    String[] resultSets = mappedStatement.getResulSets();
-    if (resultSets != null) {
-    while (rsw != null && resultSetCount < resultSets.length) {
-        ResultMapping parentMapping = nextResultMaps.get(resultSets[resultSetCount]);
-        if (parentMapping != null) {
-        String nestedResultMapId = parentMapping.getNestedResultMapId();
-        ResultMap resultMap = configuration.getResultMap(nestedResultMapId);
-        handleResultSet(rsw, resultMap, null, parentMapping);
-        }
-        rsw = getNextResultSet(stmt);
-        cleanUpAfterHandlingResultSet();
-        resultSetCount++;
-    }
-    }
-
-    return collapseSingleResultList(multipleResults);
-}
-```
-
-</details>
 
 
 
@@ -420,4 +586,5 @@ MyBatis框架在应用启动时会解析所有的Mapper接口，然后调用Mapp
 
 
 # 参考书籍  
+<p id="ref001"></p>
 [1] 《MyBatis 3源码深度解析》-江荣波  
