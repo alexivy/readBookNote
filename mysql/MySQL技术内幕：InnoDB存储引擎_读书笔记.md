@@ -12,6 +12,8 @@
     - [InnoDB全文检索](#innodb全文检索)
     - [全文检索](#全文检索-1)
       - [NATURAL LANGUAGE](#natural-language)
+      - [Boolean](#boolean)
+      - [Query Expansion](#query-expansion)
 
 
 # 第5章 索引与算法（待完善）  
@@ -113,4 +115,15 @@ MATCH指定了需要被查询的列，AGAINST指定了使用何种方法去进�
     AS Relevance
     FROM fts_a;
 
+#### Boolean  
+MySQL数据库允许使用IN BOOLEAN MODE修饰符来进行全文检索。  
+下面的SQL语句用于查询有字符串Pease但没有hot的文档：
 
+    SELECT *FROM fts_a
+    WHERE MATCH(body) AGAINST ('+Pease -hot' IN BOOLEAN MODE)\G;
+
+更多参见原书。  
+
+#### Query Expansion  
+全文检索的扩展查询。该查询分为两个阶段。第一阶段：根据搜索的单词进行全文索引查询。第二阶段：根据第一阶段产生的分词再进行一次全文检索的查询。  
+例：第一阶段搜索的词为MicroSoft，搜索结果为一条：MicroSoft Windows，第二阶段以MicroSoft、Windows为搜索词，返回包含这两个词的结果。  

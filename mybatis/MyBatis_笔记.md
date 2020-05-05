@@ -4,6 +4,9 @@
     - [MetaObject](#metaobject)
     - [ObjectFactory](#objectfactory)
     - [ProxyFactory](#proxyfactory)
+  - [缓存](#缓存)
+    - [配置二级缓存](#配置二级缓存)
+    - [配置Redis作为二级缓存](#配置redis作为二级缓存)
   - [核心组件](#核心组件)
     - [Configuration](#configuration)
   - [配置文件](#配置文件)
@@ -12,12 +15,15 @@
     - [一对多关联映射的二种方法](#一对多关联映射的二种方法)
   - [一对一关联映射的二种方法](#一对一关联映射的二种方法)
 - [MyBatis的原理](#mybatis的原理)
+  - [SqlSession的创建过程](#sqlsession的创建过程)
+  - [MyBatis如何执行查询](#mybatis如何执行查询)
+    - [大致流程](#大致流程)
+    - [代理工厂](#代理工厂)
+    - [MappedStatement](#mappedstatement)
+    - [查询流程及对应源码](#查询流程及对应源码)
   - [MyBatis涉及的类型转换](#mybatis涉及的类型转换)
     - [MyBaits如何为SQL语句设置参数](#mybaits如何为sql语句设置参数)
     - [MyBaits如何处理SQL语句查询结果](#mybaits如何处理sql语句查询结果)
-  - [SqlSession的创建过程](#sqlsession的创建过程)
-  - [MyBatis如何执行查询](#mybatis如何执行查询)
-    - [查询流程及对应源码](#查询流程及对应源码)
 - [参考书籍](#参考书籍)
 
 # Mybatis的使用  
@@ -79,7 +85,101 @@ ObjectFactory是MyBatis中的对象工厂，MyBatis每次创建Mapper映射结�
 
 ProxyFactory是MyBatis中的代理工厂，主要用于创建动态代理对象，ProxyFactory接口有两个不同的实现，分别为CglibProxyFactory和JavassistProxyFactory。从实现类的名称可以看出，MyBatis支持两种动态代理策略，分别为Cglib和Javassist动态代理。ProxyFactory主要用于实现MyBatis的懒加载功能。  
 
-## 核心组件
+## 缓存  
+
+MyBatis的缓存分为一级缓存和二级缓存，一级缓存默认是开启的，而且不能关闭。  
+
+MyBatis提供了一个配置参数localCacheScope，用于控制一级缓存的级别，该参数的取值为SESSION、STATEMENT，当指定localCacheScope参数值为SESSION时，缓存对整个SqlSession有效，只有执行DML语句（更新语句）时，缓存才会被清除。当localCacheScope值为STATEMENT时，缓存仅对当前执行的语句有效，当语句执行完毕后，缓存就会被清空。MyBatis的一级缓存，用户只能控制缓存的级别。  
+
+### 配置二级缓存  
+1. 在MyBatis主配置文件中指定cacheEnabled属性值为true。  
+
+<details>
+    <summay>详细</summary>
+
+    <settings>
+        ...
+        <setting name="cacheEnabled" value="true"/>
+    </settings>
+
+</details>
+
+2. 在MyBatis Mapper配置文件中，配置缓存策略、缓存刷新频率、缓存的容量等属性。  
+
+<details>
+    <summay>详细</summary>
+
+    <cache eviction="FIFO" //？回收策略？
+        flushInterval="60000" //刷新缓存间隔
+        size="512" //缓存容量
+        readOnly="true" />
+
+</details>
+
+3. 在配置Mapper时，通过useCache属性指定Mapper执行时是否使用缓存。  
+
+<details>
+    <summay>详细</summary>
+
+    <select ...
+        flushCache="false" //刷新缓存
+        useCache="true" > //使用缓存
+        ...
+    </select>
+
+</details>
+
+### 配置Redis作为二级缓存  
+1. 引入依赖，MyBatis官方提供了一个mybatis-redis模块，该模块用于整合Redis作为二级缓存。  
+
+<details>
+    <summay>详细</summary>
+
+    <dependencies>
+        ...
+        <dependency>
+            <groupId>org.mybatis.caches</groupId>
+            <artifactId>mybatis-redis</artifactId>
+            <version>1.0.0-beta2</version>
+        </dependency>
+    </dependencies>
+
+</details>
+
+2. Mapper的XML配置文件中添加缓存配置  
+
+<details>
+    <summay>详细</summary>
+
+    <mapper ...>
+        <cache type="org.mybatis.caches.redis.RedisCache"/>
+        ...
+    </mapper>
+
+</details>
+
+3. 在classpath下新增redis.properties文件，配置Redis的连接信息。  
+
+<details>
+    <summay>配置内容</summary>
+
+    host=127.0.0.1
+    port=6379
+    password=admin
+    maxActive=100
+    maxIdle=20
+    whenExhaustedAction=WHEN_EXHAUSTED_GROW
+    maxWait=10
+    testOnBorrow=true
+    testOnReturn=true
+    timeBetweenEvictionRunsMillis=10000
+    numTestsPerEvictionRun=10000
+    minEvictableIdleTimeMillis=100
+    softMinEvictableIdleTimeMillis=-1
+
+</details>
+
+## 核心组件  
 
 ![MyBatis核心组件](/mybatis/MyBatisP001.PNG)  
 MyBatis核心组件( 图源自[参考书籍1](#ref001) )  
@@ -231,91 +331,36 @@ join子句实现：
 
 # MyBatis的原理  
 
-## MyBatis涉及的类型转换  
-
-MyBatis涉及Java类型和JDBC类型转换的两种情况如下：  
-1. PreparedStatement对象为参数占位符设置值时，需要调用PreparedStatement接口中提供的一系列的setXXX()方法，将Java类型转换为对应的JDBC类型并为参数占位符赋值。  
-2. 执行SQL语句获取ResultSet对象后，需要调用ResultSet对象的getXXX()方法获取字段值，此时会将JDBC类型转换为Java类型。  
-
-MyBatis中使用TypeHandler解决上面两种情况，MyBatis中的BaseTypeHandler类实现了TypeHandler接口。  
-
-### MyBaits如何为SQL语句设置参数  
-
-即类型转换第一种情况对应的场景：  
-
-ParameterHandler的作用是为SQL语句中的参数占位符设置值。ParameterHandler接口只有一个默认的实现类，即DefaultParameterHandler，在DefaultParameterHandler类的setParameters()方法中，首先获取Mapper配置中的参数映射，然后对所有参数映射信息进行遍历，接着根据参数名称获取对应的参数值，调用对应的TypeHandler对象的setParameter()方法为Statement对象中的参数占位符设置值。  
-
-
-<p id="handleresultsets"></p>  
-
-### MyBaits如何处理SQL语句查询结果  
-
-即类型转换第二种情况对应的场景：  
-
-ResultSetHandler用于在StatementHandler对象执行完查询操作或存储过程后，对结果集或存储过程的执行结果进行处理。ResultSetHandler接口只有一个默认的实现，即DefaultResultHandler。  
-
-DefaultResultSetHandler类的handleResultSets()方法具体逻辑如下：
-1. 首先从Statement对象中获取ResultSet对象，然后将ResultSet包装为ResultSetWrapper对象，通过ResultSetWrapper对象能够更方便地获取数据库字段名称以及字段对应的TypeHandler信息。  
-2. 获取Mapper SQL配置中通过resultMap属性指定的ResultMap信息，一条SQL Mapper配置一般只对应一个ResultMap。  
-3. 调用handleResultSet()方法对ResultSetWrapper对象进行处理，将结果集转换为Java实体对象，然后将生成的实体对象存放在multipleResults列表中。  
-4. 调用collapseSingleResultList()方法对multipleResults进行处理，如果只有一个结果集，就返回结果集中的元素，否则返回多个结果集。  
-
-<details>
-    <summary>点击查看esultSetHandler的handleResultSets方法
-    </summary>
-    
-```
-public List<Object> handleResultSets(Statement stmt) throws SQLException {
-    final List<Object> multipleResults = new ArrayList<Object>();
-
-    int resultSetCount = 0;
-    ResultSetWrapper rsw = getFirstResultSet(stmt);
-
-    List<ResultMap> resultMaps = mappedStatement.getResultMaps();
-    int resultMapCount = resultMaps.size();
-    validateResultMapsCount(rsw, resultMapCount);
-    while (rsw != null && resultMapCount > resultSetCount) {
-    ResultMap resultMap = resultMaps.get(resultSetCount);
-    handleResultSet(rsw, resultMap, multipleResults, null);
-    rsw = getNextResultSet(stmt);
-    cleanUpAfterHandlingResultSet();
-    resultSetCount++;
-    }
-
-    String[] resultSets = mappedStatement.getResulSets();
-    if (resultSets != null) {
-    while (rsw != null && resultSetCount < resultSets.length) {
-        ResultMapping parentMapping = nextResultMaps.get(resultSets[resultSetCount]);
-        if (parentMapping != null) {
-        String nestedResultMapId = parentMapping.getNestedResultMapId();
-        ResultMap resultMap = configuration.getResultMap(nestedResultMapId);
-        handleResultSet(rsw, resultMap, null, parentMapping);
-        }
-        rsw = getNextResultSet(stmt);
-        cleanUpAfterHandlingResultSet();
-        resultSetCount++;
-    }
-    }
-
-    return collapseSingleResultList(multipleResults);
-}
-```
-
-</details>
-
 ## SqlSession的创建过程  
 
 框架在启动时会解析MyBatis主配置文件及所有Mapper文件，将配置信息转换为Configuration对象。在创建SqlSession对象之前，需要先创建SqlSessionFactory对象（SqlSessionFactory.build()方法返回一个此对象）。SqlSessionFactory对象中持有Configuration对象的引用。有了SqlSessionFactory对象后，调用SqlSessionFactory对象的openSession()方法即可创建SqlSession对象。  
 
-
-
-
-
 ## MyBatis如何执行查询  
+
+### 大致流程  
+
+MyBatis执行查询的大致流程：写代码时定义的是Mapper接口及其中的方法，MyBatis会生成Mapper对应的动态代理对象，在通过代理对象调用Mapper接口中定义的方法时，会执行代理对象中的拦截逻辑，将Mapper方法的调用转换为调用SqlSession提供的API方法。在SqlSession的API方法中通过Mapper的Id找到对应的MappedStatement对象，获取对应的SQL信息，通过StatementHandler操作JDBC API的Statement对象完成与数据库的交互，然后通过[ResultSetHandler](#handleresultsets)处理结果集，将结果返回给调用者。  
+
+### 代理工厂  
 
 在创建SqlSession实例后，需要调用SqlSession的getMapper()方法获取一个UserMapper的引用，然后通过该引用调用Mapper接口中定义的方法。SqlSession对象的getMapper()方法返回的是一个动态代理对象。MyBatis中通过MapperProxy类实现动态代理。MapperProxy使用的是JDK内置的动态代理。  
 
-MyBatis执行查询的大致流程：写代码时定义的是Mapper接口及其中的方法，MyBatis会生成Mapper对应的动态代理对象，在通过代理对象调用Mapper接口中定义的方法时，会执行代理对象中的拦截逻辑，将Mapper方法的调用转换为调用SqlSession提供的API方法。在SqlSession的API方法中通过Mapper的Id找到对应的MappedStatement对象，获取对应的SQL信息，通过StatementHandler操作JDBC API的Statement对象完成与数据库的交互，然后通过[ResultSetHandler](#handleresultsets)处理结果集，将结果返回给调用者。  
+MyBatis使用MapperProxyFactory创建Mapper动态代理对象，使用MapperProxyFactory创建Mapper动态代理对象首先需要创建MapperProxyFactory实例。Configuration对象中有一个mapperRegistry属性，MyBatis通过mapperRegistry属性注册Mapper接口与MapperProxyFactory对象之间的对应关系。MyBatis框架在应用启动时会解析所有的Mapper接口，然后调用MapperRegistry对象的addMapper()方法将Mapper接口信息和对应的MapperProxyFactory对象注册到MapperRegistry对象中。  
+
+### MappedStatement  
+
+MyBatis通过MappedStatement类描述Mapper的SQL配置信息（具体方法及SQL语句的信息）。  
+
+<!-- \<mappers\>标签是通过XMLConfigBuilder类的mapperElement()方法来解析的。Mapper SQL配置文件的解析需要借助XMLMapperBuilder对象。在mapperElement()方法中，首先创建一个XMLMapperBuilder对象，然后调用XMLMapperBuilder对象的parse()方法完成解析  
+
+XMLMapperBuilder类的buildStatementFromContext()方法中对所有XNode对象进行遍历，然后为每个<select|insert|update|delete>标签对应的XNode对象创建一个XMLStatementBuilder对象，接着调用XMLStatementBuilder对象的parseStatementNode()方法进行解析处理。   -->
+
+XMLStatementBuilder类的parseStatementNode()方法用于生成MappedStatement对象，主要做了以下几件事情：  
+1. 获取\<select|insert|delete|update\>标签的所有属性信息。  
+2. 将\<include\>标签引用的SQL片段替换为对应的\<sql\>标签中定义的内容。  
+3. 获取lang属性指定的LanguageDriver，通过LanguageDriver创建SqlSource。MyBatis中的SqlSource表示一个SQL资源，后面章节中会对SqlSource做更详细的介绍。  
+4. 获取KeyGenerator对象。KeyGenerator的不同实例代表不同的主键生成策略。  
+5. 所有解析工作完成后，使用MapperBuilderAssistant对象的addMappedStatement()方法创建MappedStatement对象。创建完成后，调用Configuration对象的addMappedStatement()方法将MappedStatement对象注册到Configuration对象中。  
 
 ### 查询流程及对应源码  
 
@@ -547,6 +592,78 @@ MyBatis默认情况下会使用PreparedStatementHandler与数据库交互。在P
         ps.execute();
         return resultSetHandler.<E> handleResultSets(ps);
     }
+
+## MyBatis涉及的类型转换  
+
+MyBatis涉及Java类型和JDBC类型转换的两种情况如下：  
+1. PreparedStatement对象为参数占位符设置值时，需要调用PreparedStatement接口中提供的一系列的setXXX()方法，将Java类型转换为对应的JDBC类型并为参数占位符赋值。  
+2. 执行SQL语句获取ResultSet对象后，需要调用ResultSet对象的getXXX()方法获取字段值，此时会将JDBC类型转换为Java类型。  
+
+MyBatis中使用TypeHandler解决上面两种情况，MyBatis中的BaseTypeHandler类实现了TypeHandler接口。  
+
+### MyBaits如何为SQL语句设置参数  
+
+即类型转换第一种情况对应的场景：  
+
+ParameterHandler的作用是为SQL语句中的参数占位符设置值。ParameterHandler接口只有一个默认的实现类，即DefaultParameterHandler，在DefaultParameterHandler类的setParameters()方法中，首先获取Mapper配置中的参数映射，然后对所有参数映射信息进行遍历，接着根据参数名称获取对应的参数值，调用对应的TypeHandler对象的setParameter()方法为Statement对象中的参数占位符设置值。  
+
+
+<p id="handleresultsets"></p>  
+
+### MyBaits如何处理SQL语句查询结果  
+
+即类型转换第二种情况对应的场景：  
+
+ResultSetHandler用于在StatementHandler对象执行完查询操作或存储过程后，对结果集或存储过程的执行结果进行处理。ResultSetHandler接口只有一个默认的实现，即DefaultResultHandler。  
+
+DefaultResultSetHandler类的handleResultSets()方法具体逻辑如下：
+1. 首先从Statement对象中获取ResultSet对象，然后将ResultSet包装为ResultSetWrapper对象，通过ResultSetWrapper对象能够更方便地获取数据库字段名称以及字段对应的TypeHandler信息。  
+2. 获取Mapper SQL配置中通过resultMap属性指定的ResultMap信息，一条SQL Mapper配置一般只对应一个ResultMap。  
+3. 调用handleResultSet()方法对ResultSetWrapper对象进行处理，将结果集转换为Java实体对象，然后将生成的实体对象存放在multipleResults列表中。  
+4. 调用collapseSingleResultList()方法对multipleResults进行处理，如果只有一个结果集，就返回结果集中的元素，否则返回多个结果集。  
+
+<details>
+    <summary>点击查看esultSetHandler的handleResultSets方法
+    </summary>
+    
+```
+public List<Object> handleResultSets(Statement stmt) throws SQLException {
+    final List<Object> multipleResults = new ArrayList<Object>();
+
+    int resultSetCount = 0;
+    ResultSetWrapper rsw = getFirstResultSet(stmt);
+
+    List<ResultMap> resultMaps = mappedStatement.getResultMaps();
+    int resultMapCount = resultMaps.size();
+    validateResultMapsCount(rsw, resultMapCount);
+    while (rsw != null && resultMapCount > resultSetCount) {
+    ResultMap resultMap = resultMaps.get(resultSetCount);
+    handleResultSet(rsw, resultMap, multipleResults, null);
+    rsw = getNextResultSet(stmt);
+    cleanUpAfterHandlingResultSet();
+    resultSetCount++;
+    }
+
+    String[] resultSets = mappedStatement.getResulSets();
+    if (resultSets != null) {
+    while (rsw != null && resultSetCount < resultSets.length) {
+        ResultMapping parentMapping = nextResultMaps.get(resultSets[resultSetCount]);
+        if (parentMapping != null) {
+        String nestedResultMapId = parentMapping.getNestedResultMapId();
+        ResultMap resultMap = configuration.getResultMap(nestedResultMapId);
+        handleResultSet(rsw, resultMap, null, parentMapping);
+        }
+        rsw = getNextResultSet(stmt);
+        cleanUpAfterHandlingResultSet();
+        resultSetCount++;
+    }
+    }
+
+    return collapseSingleResultList(multipleResults);
+}
+```
+
+</details>
 
 
 
