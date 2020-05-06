@@ -1,4 +1,6 @@
 - [编辑器](#编辑器)
+  - [生成目录](#生成目录)
+  - [显示空格](#显示空格)
 - [markdown](#markdown)
   - [换行](#换行)
   - [目录](#目录)
@@ -14,8 +16,15 @@
 <p id="jumpflag" ></p>本文简介：这篇是github中编写markdown的一些知识。  
 
 # 编辑器
-[ visual studio code ] + extension [ Markdown All in One ]   
-可实时预览，可生成适配github的目录，集成git。  
+[ visual studio code ] + extension [ Markdown All in One ]  
+
+可实时预览，可生成适配github的目录（设置Toc: Github Compatibility），便捷使用git。  
+
+## 生成目录  
+
+ctrl + shift + P ==>输入create table of contents即可搜索到  
+## 显示空格  
+
 [ visual studio code ]中显示空格，在file=>preference=>setting中设置Render Whitespace为all。  
 
 # markdown  
