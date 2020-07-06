@@ -269,7 +269,7 @@ classpath*：不仅包含class路径，还包括jar文件中(class路径)进行�
 
 ## ControllerAdvice  
 ### ExceptionHandler处理异常  
-为避免sql异常信息直接返回到前端，进行处理。  
+为避免sql异常信息直接返回到前端，对异常进行处理。  
 首先是class  
 ```
 @ControllerAdvice
