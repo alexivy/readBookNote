@@ -8,10 +8,12 @@
   - [Vue](#vue)
     - [Vue父子组件](#vue父子组件)
     - [Vue组件高度设置](#vue组件高度设置)
+    - [boolean值的显示处理](#boolean值的显示处理)
   - [Vuex](#vuex)
   - [Vue实现token登录](#vue实现token登录)
 - [Backend--SSM](#backend--ssm)
   - [跨域问题](#跨域问题)
+  - [MyBatis的Mapper配置问题](#mybatis的mapper配置问题)
 
 # Frontend--Vue  
 
@@ -81,6 +83,26 @@ document.body.clientHeight可能无法获得正确值。此时在html的\<head\>
         }
     </style>
 
+### boolean值的显示处理  
+
+在element-ui的表格中显示  
+```
+<el-table-column prop="sex" label="性别" width="180" :formatter="formatBoolean"/>
+```
+
+```
+script中methods中定义函数
+formatBoolean: function (row, column, cellValue) {
+        var ret = ''  //你想在页面展示的值
+        if (cellValue) {
+            ret = "男"  //根据自己的需求设定
+        } else {
+            ret = "女"
+        }
+        return ret;
+      },
+```
+
 
 ## Vuex  
 在template中可通过下面的方式访问store中的属性  
@@ -147,7 +169,7 @@ router中配置requiresAuth的路径需要有token，没有就跳转登录页
 # Backend--SSM  
 
 ## 跨域问题  
-三种思路。
+三种思路。  
 1. 使用@CrossOrigin注解在相应controller上。Interceptor拦截后仍有跨域的问题。  
 2. 使用spring mvc全局配置：  
 
@@ -160,7 +182,7 @@ router中配置requiresAuth的路径需要有token，没有就跳转登录页
 </mvc:cors>
 ```
 
-3. 使用cors-filter解决，
+3. 使用cors-filter解决，  
 
 ```
 pom中
@@ -203,3 +225,45 @@ web.xml中
     <url-pattern>/*</url-pattern>
   </filter-mapping>
 ```
+
+## MyBatis的Mapper配置问题  
+
+报错Invalid bound statement，检查了一下几项：  
+
+1. mybatis的mapper配置，一般在spring配置文件中class="org.mybatis.spring.SqlSessionFactoryBean"的bean的mapperLocations属性，或是在mybatis的配置文件中的mappers标签中。  
+2. 检查编译好的项目中是否有对应mapper.xml文件。IDEA有时编译时不会将source文件夹下的其他文件编译或者说打包。将mapper文件放入resources文件夹下，或者将项目的pom.xml文件中的build节点下加入如下代码：
+   ```
+   <resources>
+        <resource>
+            <directory>src/main/java</directory>
+            <includes>
+                <include>**/*.xml</include>
+            </includes>
+        </resource>
+    </resources>
+    ```
+3. mapper文件有没有错误，包括namespace配置是否正确（对应其类文件）、是否有interface中的方法对应的条目、返回类型resultMap是否正确。  
+
+报错```class path resource [spring/] cannot be resolved to URL because it does not exist```   
+解决办法1：  
+
+```
+pom.xml文件的build节点下加入
+<resources>
+<resource>
+  <directory>src/main/resources</directory>
+  <includes>
+    <include>**/*.properties</include>
+    <include>**/*.xml</include>
+  </includes>
+  <filtering>false</filtering>
+</resource>
+</resources>
+```
+
+办法2：  
+``` 改写成 classpath*:（后面略）```  
+classpath 和 classpath* 区别：  
+classpath：只会到你的class路径（IDEA中编译后在 target/classes 文件夹中）中查找文件;  
+classpath*：不仅包含class路径，还包括jar文件中(class路径)进行查找。当项目中有多个classpath路径，并同时加载多个classpath路径下（此种情况多数不会遇到）的文件，* 就发挥了作用，如果不加 * ，则表示仅仅加载第一个classpath路径。  
+

@@ -1,4 +1,7 @@
 # My Note  
+## Vue SSM项目  
+前后分离的信息管理系统[目前遇到的问题及解决办法](/VueSSMProject/issues.md)
+
 ## java  
 [深入理解java虚拟机_读书笔记](/java/深入理解java虚拟机_读书笔记.md)  
 
@@ -16,8 +19,7 @@
 ## MarkDown  
 [markdown笔记](/markdown.md)
 
-## Vue SSM项目  
-[目前遇到的问题及解决办法](/VueSSMProject/issues.md)
+
 
 # Anythings else  
 ps：MarkDown用的不熟，排版较乱。  
