@@ -267,3 +267,36 @@ classpath 和 classpath* 区别：
 classpath：只会到你的class路径（IDEA中编译后在 target/classes 文件夹中）中查找文件;  
 classpath*：不仅包含class路径，还包括jar文件中(class路径)进行查找。当项目中有多个classpath路径，并同时加载多个classpath路径下（此种情况多数不会遇到）的文件，* 就发挥了作用，如果不加 * ，则表示仅仅加载第一个classpath路径。  
 
+## ControllerAdvice  
+### ExceptionHandler处理异常  
+为避免sql异常信息直接返回到前端，进行处理。  
+首先是class  
+```
+@ControllerAdvice
+public class ExceptionController {
+
+    private Logger logger = Logger.getLogger ( ApiController.class );
+
+    /**
+     * 处理可能遇到的sql异常，避免其向前端返回错误信息，统一返回应答status 400 ，Bad  Request。
+     */
+    @ExceptionHandler(SQLSyntaxErrorException.class)
+    @ResponseBody
+    public Result sqlExceptionController(Exception exception, HttpServletRequest request, HttpServletResponse response) throws Exception{
+        //记录异常
+        logger.error(exception.getMessage(), exception);
+        response.setStatus(ResultStatus.BADREQUEST.value());
+        Result<Object> res = new Result<>();
+        res.setCode(ResultStatus.BADREQUEST.value());
+        res.setMessage("parameter wrong");
+        return res;
+    }
+}
+```
+spring mvc中配置扫描component
+```
+<context:component-scan base-package="cn.alexivy.sim.controller" use-default-filters="false">
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Component"/>
+</context:component-scan>
+```
+
