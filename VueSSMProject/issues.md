@@ -4,6 +4,7 @@
   - [Vue脚手架快速搭建项目](#vue脚手架快速搭建项目)
   - [项目运行中出现的问题](#项目运行中出现的问题)
     - [局域网中其他设备无法访问](#局域网中其他设备无法访问)
+    - [部分页面工作不正常](#部分页面工作不正常)
   - [项目的设置](#项目的设置)
   - [Vue](#vue)
     - [Vue父子组件](#vue父子组件)
@@ -11,9 +12,15 @@
     - [boolean值的显示处理](#boolean值的显示处理)
   - [Vuex](#vuex)
   - [Vue实现token登录](#vue实现token登录)
+  - [axios发送表单数据](#axios发送表单数据)
+  - [axios.interceptors](#axiosinterceptors)
+    - [全局接受response后显示相应提示](#全局接受response后显示相应提示)
 - [Backend--SSM](#backend--ssm)
   - [跨域问题](#跨域问题)
   - [MyBatis的Mapper配置问题](#mybatis的mapper配置问题)
+  - [shiro作为安全框架](#shiro作为安全框架)
+    - [配置shiro后访问Controller出现404](#配置shiro后访问controller出现404)
+  - [shiro](#shiro)
 
 # Frontend--Vue  
 
@@ -32,6 +39,9 @@
 
 ### 局域网中其他设备无法访问  
 在package.json文件中的scripts.dev的末尾加上"--host 192.168.3.28",然后便可在其他设备上通过内网ip访问，此时本机上也要通过ip进行访问（localhost失效）。  
+
+### 部分页面工作不正常  
+应该是windows防火墙拦截了axios请求。所有axios请求不能工作。  
 
 ## 项目的设置  
 config/index.js文件中可配置运行的端口  
@@ -166,6 +176,63 @@ router中配置requiresAuth的路径需要有token，没有就跳转登录页
     }
     )
 
+## axios发送表单数据  
+
+```
+axios({
+    method: 'post',
+    url: '/login',
+    data: data,
+    transformRequest: [function (data) {
+      // Do whatever you want to transform the data
+      let ret = ''
+      for (let it in data) {
+        ret += encodeURIComponent(it) + '=' + encodeURIComponent(data[it]) + '&'
+      }
+      return ret
+    }],
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
+  })
+```
+
+## axios.interceptors  
+### 全局接受response后显示相应提示  
+用到了elementUI中的notification。。[参照此处](https://element.eleme.cn/#/zh-CN/component/notification#fang-fa)  
+
+```
+import { Notification } from 'element-ui';
+
+axios.interceptors.response.use(
+  response => {
+    return response
+  },
+  error => {
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          //原来是replace 改为push，replace时会出现/home/userlist==》/home/userlist/login
+          router.push({
+            path: '/login',
+            //query: { redirect: router.currentRoute.fullPath }  将跳转的路由path作为参数，登录成功后跳转到该路由
+          })
+          break;
+        case 400:
+          // console.log("400"+JSON.stringify(error))
+          Notification({
+            title: "错误",  
+            message: error.response.data.message,  //现实的信息
+            type: "error",  //类型：success、info、error、warning四种
+            duration: 3000  //持续时间，单位毫秒。0为不自动关闭
+          });
+      }
+    }
+    return Promise.reject(error.response)
+  }
+)
+```
+
 # Backend--SSM  
 
 ## 跨域问题  
@@ -293,10 +360,17 @@ public class ExceptionController {
     }
 }
 ```
-spring mvc中配置扫描component
+spring mvc中配置扫描component，ControllerAdvice继承了Component。
 ```
 <context:component-scan base-package="cn.alexivy.sim.controller" use-default-filters="false">
         <context:include-filter type="annotation" expression="org.springframework.stereotype.Component"/>
 </context:component-scan>
 ```
 
+## shiro作为安全框架  
+
+### 配置shiro后访问Controller出现404  
+原本是参照[此链接](https://www.iteye.com/blog/jinnianshilongnian-2029717)进行配置的。  
+后来发现把之前配置的拦截器注释掉就可以正常访问了。  
+
+## shiro
