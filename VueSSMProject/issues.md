@@ -17,10 +17,15 @@
     - [全局接受response后显示相应提示](#全局接受response后显示相应提示)
 - [Backend--SSM](#backend--ssm)
   - [跨域问题](#跨域问题)
-  - [MyBatis的Mapper配置问题](#mybatis的mapper配置问题)
-  - [shiro作为安全框架](#shiro作为安全框架)
-    - [配置shiro后访问Controller出现404](#配置shiro后访问controller出现404)
+  - [ControllerAdvice](#controlleradvice)
+    - [ExceptionHandler处理异常](#exceptionhandler处理异常)
   - [shiro](#shiro)
+    - [配置shiro后访问Controller出现404](#配置shiro后访问controller出现404)
+    - [shiro重复登陆404](#shiro重复登陆404)
+    - [shiro的role和permission](#shiro的role和permission)
+    - [shiro处理后的返回信息](#shiro处理后的返回信息)
+  - [MyBatis的Mapper配置问题](#mybatis的mapper配置问题)
+  - [spring容器启动时的一个报错](#spring容器启动时的一个报错)
 
 # Frontend--Vue  
 
@@ -47,7 +52,9 @@
 config/index.js文件中可配置运行的端口  
 
 ## Vue  
+
 ### Vue父子组件  
+
 子组件的script中  
 
     export default {
@@ -69,6 +76,7 @@ config/index.js文件中可配置运行的端口
     <menu-frame></menu-frame>
 
 ### Vue组件高度设置  
+
 template中配置:style属性。  
 
     <el-container :style="{height:elHeight}">
@@ -115,11 +123,13 @@ formatBoolean: function (row, column, cellValue) {
 
 
 ## Vuex  
+
 在template中可通过下面的方式访问store中的属性  
 
     {{$store.state.object}}
 
 ## Vue实现token登录  
+
 整体思路：  
 1. 首次登录时，后端服务器判断用户账号密码正确之后，根据用户id、用户名、定义好的秘钥、过期时间生成 token ，返回给前端；  
 2. 前端拿到后端返回的 token ,存储在 localStroage 和 Vuex 里；  
@@ -198,7 +208,9 @@ axios({
 ```
 
 ## axios.interceptors  
+
 ### 全局接受response后显示相应提示  
+
 用到了elementUI中的notification。。[参照此处](https://element.eleme.cn/#/zh-CN/component/notification#fang-fa)  
 
 ```
@@ -293,52 +305,14 @@ web.xml中
   </filter-mapping>
 ```
 
-## MyBatis的Mapper配置问题  
-
-报错Invalid bound statement，检查了一下几项：  
-
-1. mybatis的mapper配置，一般在spring配置文件中class="org.mybatis.spring.SqlSessionFactoryBean"的bean的mapperLocations属性，或是在mybatis的配置文件中的mappers标签中。  
-2. 检查编译好的项目中是否有对应mapper.xml文件。IDEA有时编译时不会将source文件夹下的其他文件编译或者说打包。将mapper文件放入resources文件夹下，或者将项目的pom.xml文件中的build节点下加入如下代码：
-   ```
-   <resources>
-        <resource>
-            <directory>src/main/java</directory>
-            <includes>
-                <include>**/*.xml</include>
-            </includes>
-        </resource>
-    </resources>
-    ```
-3. mapper文件有没有错误，包括namespace配置是否正确（对应其类文件）、是否有interface中的方法对应的条目、返回类型resultMap是否正确。  
-
-报错```class path resource [spring/] cannot be resolved to URL because it does not exist```   
-解决办法1：  
-
-```
-pom.xml文件的build节点下加入
-<resources>
-<resource>
-  <directory>src/main/resources</directory>
-  <includes>
-    <include>**/*.properties</include>
-    <include>**/*.xml</include>
-  </includes>
-  <filtering>false</filtering>
-</resource>
-</resources>
-```
-
-办法2：  
-``` 改写成 classpath*:（后面略）```  
-classpath 和 classpath* 区别：  
-classpath：只会到你的class路径（IDEA中编译后在 target/classes 文件夹中）中查找文件;  
-classpath*：不仅包含class路径，还包括jar文件中(class路径)进行查找。当项目中有多个classpath路径，并同时加载多个classpath路径下（此种情况多数不会遇到）的文件，* 就发挥了作用，如果不加 * ，则表示仅仅加载第一个classpath路径。  
-
 ## ControllerAdvice  
+
 ### ExceptionHandler处理异常  
+
 为避免sql异常信息直接返回到前端，对异常进行处理。  
-首先是class  
+
 ```
+首先是class  
 @ControllerAdvice
 public class ExceptionController {
 
@@ -360,17 +334,127 @@ public class ExceptionController {
     }
 }
 ```
+
 spring mvc中配置扫描component，ControllerAdvice继承了Component。
+
 ```
 <context:component-scan base-package="cn.alexivy.sim.controller" use-default-filters="false">
         <context:include-filter type="annotation" expression="org.springframework.stereotype.Component"/>
 </context:component-scan>
 ```
 
-## shiro作为安全框架  
+## shiro  
 
 ### 配置shiro后访问Controller出现404  
+
 原本是参照[此链接](https://www.iteye.com/blog/jinnianshilongnian-2029717)进行配置的。  
 后来发现把之前配置的拦截器注释掉就可以正常访问了。  
 
-## shiro
+### shiro重复登陆404  
+
+shiro在filter中会先判定isAccessAllowed，正常登录时此方法会返回false，但重复登陆时会返回true，此时会向spring mvc的dispatcherservlet请求原登录的uri，找不到然后返回404。
+
+### shiro的role和permission  
+
+controller注解中配置的所有role和permission都必须满足，请求的subject才能访问。同时shiro permission支持通配符。
+如下：  
+```
+某个subject有"stu:*"的permission，那么他就可以访问下面注解所标注的方法。  
+@RequiresPermissions(value = "stu:update")所注解的方法  
+```
+
+### shiro处理后的返回信息  
+
+在xml文件中的配置能将其返回到某些jsp页面中，但可以通过如下的方式实现返回json。  
+```
+此处以登录成功返会json数据为例。  
+
+1、定位shiro重定向至相应页面的filter的相应方法。此处定位到了FormAuthenticationFilter的下面这个方法：  
+protected boolean onLoginSuccess(AuthenticationToken token, Subject subject, ServletRequest request, ServletResponse response) throws Exception {
+        this.issueSuccessRedirect(request, response);
+        return false;
+    }
+
+2、实现自己的filter继承之前的filter并重写相应方法，方法里直接添加返回信息即可。  
+public class MyFormAuthenticationFilter extends FormAuthenticationFilter {
+    //...
+    @Override
+    protected boolean onLoginSuccess (AuthenticationToken token, Subject subject, ServletRequest request, ServletResponse response) throws Exception {
+        HttpServletRequest httpServletRequest = (HttpServletRequest) request;
+        HttpServletResponse httpServletResponse = (HttpServletResponse) response;
+        httpServletResponse.setContentType("text/json;charset=UTF-8");//设置响应头
+        Result<User> res = new Result<>();
+        res.setMessage("登陆成功！");
+        res.setData(userService.getUserInfoByUsername((String) token.getPrincipal()));
+        httpServletResponse.getWriter().write(res.toJson());
+        return false;
+    }
+}
+
+3、将自己实现的filter配置到shiroFilter中。如下：
+    <!-- 基于Form表单的filter  -->
+    <bean id="formAuthenticationFilter" class="cn.alexivy.sim.shiro.filter.MyFormAuthenticationFilter">
+        <!--   略    -->
+    </bean>
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="securityManager"/>
+        <property name="filters">
+            <util:map>
+                <!-- 配置为自己的filter，实现特殊的返回结果  -->
+                <entry key="authc" value-ref="formAuthenticationFilter"/>
+            </util:map>
+        </property>
+        <!--   略    -->
+    </bean>
+```
+ps：shiro中重定向常用下面这个方法，给他打个断点然后看调用链就可快速找出在哪个方法判断进行重定向/操作response。
+```WebUtils.redirectToSavedRequest(request, response, this.getSuccessUrl());```
+
+
+## MyBatis的Mapper配置问题  
+
+报错Invalid bound statement，检查了一下几项：  
+
+1. mybatis的mapper配置，一般在spring配置文件中class="org.mybatis.spring.SqlSessionFactoryBean"的bean的mapperLocations属性，或是在mybatis的配置文件中的mappers标签中。  
+
+2. 检查编译好的项目中是否有对应mapper.xml文件。IDEA有时编译时不会将source文件夹下的其他文件编译或者说打包。将mapper文件放入resources文件夹下，或者将项目的pom.xml文件中的build节点下加入如下代码：  
+
+```
+<resources>
+    <resource>
+        <directory>src/main/java</directory>
+        <includes>
+            <include>**/*.xml</include>
+        </includes>
+    </resource>
+</resources>
+```
+
+3. mapper文件有没有错误，包括namespace配置是否正确（对应其类文件）、是否有interface中的方法对应的条目、返回类型resultMap是否正确。  
+
+## spring容器启动时的一个报错  
+报错```class path resource [spring/] cannot be resolved to URL because it does not exist```   
+解决办法1：  
+
+```
+pom.xml文件的build节点下加入
+<resources>
+<resource>
+  <directory>src/main/resources</directory>
+  <includes>
+    <include>**/*.properties</include>
+    <include>**/*.xml</include>
+  </includes>
+  <filtering>false</filtering>
+</resource>
+</resources>
+```
+
+办法2：  
+```
+改写成 classpath*:（后面略）  
+classpath 和 classpath* 区别：  
+classpath：只会到你的class路径（IDEA中编译后在 target/classes 文件夹中）中查找文件;  
+classpath*：不仅包含class路径，还包括jar文件中(class路径)进行查找。当项目中有多个classpath路径，并同时加载多个classpath路径下（此种情况多数不会遇到）的文件，* 就发挥了作用，如果不加 * ，则表示仅仅加载第一个classpath路径。  
+```
+
