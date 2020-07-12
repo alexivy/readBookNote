@@ -24,6 +24,7 @@
     - [shiro重复登陆404](#shiro重复登陆404)
     - [shiro的role和permission](#shiro的role和permission)
     - [shiro处理后的返回信息](#shiro处理后的返回信息)
+    - [shiro session管理](#shiro-session管理)
   - [MyBatis的Mapper配置问题](#mybatis的mapper配置问题)
   - [spring容器启动时的一个报错](#spring容器启动时的一个报错)
 
@@ -409,6 +410,12 @@ public class MyFormAuthenticationFilter extends FormAuthenticationFilter {
 ```
 ps：shiro中重定向常用下面这个方法，给他打个断点然后看调用链就可快速找出在哪个方法判断进行重定向/操作response。
 ```WebUtils.redirectToSavedRequest(request, response, this.getSuccessUrl());```
+
+
+### shiro session管理  
+碰到了java.lang.InstantiationError: org.quartz.SimpleTrigger异常。  
+解决方法参考[shiro quartz 版本不兼容](https://blog.csdn.net/m0_37499059/article/details/81532515?utm_source=blogxgwz8)。  
+由于没有其他地方用到quartz，应该是用了新版本的shiro，spring配置中却参考了老版本的导致尝试实例化接口出现的问题。  
 
 
 ## MyBatis的Mapper配置问题  
