@@ -17,9 +17,10 @@
 [MySQL技术内幕：InnoDB存储引擎_读书笔记](/mysql/MySQL技术内幕：InnoDB存储引擎_读书笔记.md)  
 
 ## MarkDown  
-[markdown笔记](/markdown.md)
+[markdown笔记](/markdown.md)  
 
-
+## 工具与技巧  
+[一些工具和技巧](/tips.md)  
 
 # Anythings else  
 ps：MarkDown用的不熟，排版较乱。  
