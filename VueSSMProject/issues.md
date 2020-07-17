@@ -25,8 +25,11 @@
     - [shiro的role和permission](#shiro的role和permission)
     - [shiro处理后的返回信息](#shiro处理后的返回信息)
     - [shiro session管理](#shiro-session管理)
-  - [MyBatis的Mapper配置问题](#mybatis的mapper配置问题)
+  - [MyBatis](#mybatis)
+    - [Mapper配置问题](#mapper配置问题)
+    - [多字段更新](#多字段更新)
   - [spring容器启动时的一个报错](#spring容器启动时的一个报错)
+  - [hibernate validator做后端校验](#hibernate-validator做后端校验)
 
 # Frontend--Vue  
 
@@ -418,7 +421,9 @@ ps：shiro中重定向常用下面这个方法，给他打个断点然后看调�
 由于没有其他地方用到quartz，应该是用了新版本的shiro，spring配置中却参考了老版本的导致尝试实例化接口出现的问题。  
 
 
-## MyBatis的Mapper配置问题  
+## MyBatis  
+
+### Mapper配置问题
 
 报错Invalid bound statement，检查了一下几项：  
 
@@ -438,6 +443,29 @@ ps：shiro中重定向常用下面这个方法，给他打个断点然后看调�
 ```
 
 3. mapper文件有没有错误，包括namespace配置是否正确（对应其类文件）、是否有interface中的方法对应的条目、返回类型resultMap是否正确。  
+
+### 多字段更新  
+原本是用的动态表名，现在改成如下的if判断。
+使用#{}可以避免sql注入  
+${}的话是sql拼接，会有sql注入风险，statementType只能是STATEMENT，且需要自己判断是否加引号。  
+```
+方法：
+public boolean changeStuInfo(Student student);
+对应xml部分：注意trim段的suffixOverrides配置可以去掉多余的逗号。（多的逗号会引起sql错误）
+<update id="changeStuInfo" parameterType="cn.alexivy.sim.bean.Student">
+      UPDATE stuinfo
+      <trim prefix="set" suffixOverrides=",">
+          <if test="name!=null">realname=#{name},</if>
+          <if test="sex!=null">sex=#{sex},</if>
+          <if test="homeAddress!=null">homeAddress=#{homeAddress},</if>
+          <if test="localAddress!=null">localAddress=#{localAddress},</if>
+          <if test="homePhone!=null">homePhone=#{homePhone},</if>
+          <if test="selfPhone!=null">selfPhone=#{selfPhone},</if>
+          <if test="depart!=null">depart=#{depart},</if>
+      </trim>
+      WHERE uid = #{id};
+</update>
+```
 
 ## spring容器启动时的一个报错  
 报错```class path resource [spring/] cannot be resolved to URL because it does not exist```   
@@ -463,5 +491,76 @@ pom.xml文件的build节点下加入
 classpath 和 classpath* 区别：  
 classpath：只会到你的class路径（IDEA中编译后在 target/classes 文件夹中）中查找文件;  
 classpath*：不仅包含class路径，还包括jar文件中(class路径)进行查找。当项目中有多个classpath路径，并同时加载多个classpath路径下（此种情况多数不会遇到）的文件，* 就发挥了作用，如果不加 * ，则表示仅仅加载第一个classpath路径。  
+```
+
+## hibernate validator做后端校验  
+引入依赖  
+```
+ <dependency>
+      <groupId>org.hibernate.validator</groupId>
+      <artifactId>hibernate-validator</artifactId>
+      <version>6.1.5.Final</version>
+    </dependency>
+```
+注解扫描  
+```
+<mvc:annotation-driven />
+```
+需要校验的实体
+```
+public class Student {
+    @NotNull(message = "id can't be null")
+    @Min(value=-1)
+    private int id;
+    ...
+}
+```
+对应的方法，注意方法的参数err用于获取校验的信息，没有这个参数的话会404错误。如果有校验出错的信息的话会抛异常。  
+```
+@RequiresPermissions(value = "stu:update")
+@RequestMapping(value="/changeWithStu",method = RequestMethod.POST)
+public Result<Object> changeStuInfo(@Valid @RequestBody Student stu, BindingResult err) throws ApiException {
+    Result<Object> res = new Result<>();
+    List<ObjectError> allErrors = err.getAllErrors();
+    if(allErrors!=null && allErrors.size()!=0){
+        StringBuilder mes=new StringBuilder();
+        for(ObjectError e:allErrors) {
+            mes.append(e.getDefaultMessage() + "\n");
+        }
+        ApiException throwables = new ApiException(mes.toString());
+        throw throwables;
+    }
+    res.setData(studentService.changeStuInfoByStu(stu));
+    return res;
+}
+```
+对应异常类  
+```
+public class ApiException extends Exception{
+    public ApiException(String mes) {
+        super(mes);
+    }
+}
+```
+捕获异常并向前端返回校验信息
+```
+@ControllerAdvice
+public class ExceptionController {
+    private Logger logger = Logger.getLogger ( ApiController.class );
+    /**
+     * 处理可能遇到的api异常，设置向前端返回错误信息，统一返回应答status 400 ，Bad  Request。
+     * @param exception
+     * @return
+     */
+    @ExceptionHandler({ApiException.class})
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ResponseBody
+    public Result<Object> apiExceptionController(Exception exception) {
+        //记录异常
+        logger.info(exception.getMessage());
+        Result<Object> res = new Result<>();
+        res.setMessage(exception.getMessage());
+        return res;
+    }
 ```
 
