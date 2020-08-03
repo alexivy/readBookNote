@@ -30,6 +30,8 @@
     - [多字段更新](#多字段更新)
   - [spring容器启动时的一个报错](#spring容器启动时的一个报错)
   - [hibernate validator做后端校验](#hibernate-validator做后端校验)
+  - [activiti](#activiti)
+    - [启动错误](#启动错误)
 
 # Frontend--Vue  
 
@@ -564,3 +566,9 @@ public class ExceptionController {
     }
 ```
 
+## activiti  
+
+### 启动错误  
+java.sql.SQLSyntaxErrorException: Table 'sim.act_ge_property' doesn't exist  
+参考[此处解决](https://blog.csdn.net/weixin_43770545/article/details/101197861)  
+dataSOurce的url中添加配置nullCatalogMeansCurrent=true  

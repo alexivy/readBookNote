@@ -4,6 +4,7 @@
   - [ConcurrentHashMap](#concurrenthashmap)
   - [ArrayList](#arraylist)
   - [LinkedList](#linkedlist)
+  - [String StringBuffer StringBuilder](#string-stringbuffer-stringbuilder)
   - [多线程](#多线程)
   - [jvm->GC](#jvm-gc)
   - [语法](#语法)
@@ -36,7 +37,14 @@ DEFAULT_LOAD_FACTOR=0.75（float型）
 ## LinkedList  
 底层是链表，不适合频繁读，但删除中间元素时性能比ArrayList好。
 
-
+## String StringBuffer StringBuilder  
+String，final char value[]存储字符串，声明的是不可变对象，每次对String对象的操作都会生成新的String对象。效率低下，浪费内存空间。  
+StringBuffer 和 StringBuilder都继承自抽象类AbstractStringBuilder，它们的对象能够被多次修改，并且不产生新的未使用对象。AbstractStringBuilder实现了CharSequence和Appendable接口。使用char[] value存储数据。  
+StringBuffer线程安全，synchronized修饰方法。  
+StringBuiler性能比Buffer稍高，但线程不安全。  
+  
+  
+  
 ## 多线程  
 java自带的线程池底层都是ThreadPoolExecutor实现。它有7个参数：```int corePoolSize,int maximumPoolSize,long keepAliveTime,TimeUnit unit,BlockingQueue<Runnable> workQueue,ThreadFactory threadFactory,RejectedExecutionHandler handler```  
 
@@ -44,6 +52,7 @@ java自带的线程池底层都是ThreadPoolExecutor实现。它有7个参数：
 年轻代，老年代，元空间。  
 年轻代：eden survivor1、2区（8：1：1），新对象会先放入eden，eden满时会minor gc，垃圾回收器都是复制清除算法。  
 老年代：大对象会直接进入老年代，CMS垃圾回收器的流程：（标记清除算法，内存碎片的问题）  
+
 
 
 ## 语法  

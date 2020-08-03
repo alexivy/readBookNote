@@ -1,7 +1,22 @@
 - [第二章 数据类型](#第二章-数据类型)
+  - [类型](#类型)
+    - [Unsigned](#unsigned)
+    - [Zerofill](#zerofill)
+    - [SQL MODE](#sql-mode)
+  - [日期和时间](#日期和时间)
+    - [相关函数](#相关函数)
+  - [数字类型](#数字类型)
+    - [整型](#整型)
+    - [浮点型](#浮点型)
+    - [高精度](#高精度)
+    - [位类型](#位类型)
   - [字符类型](#字符类型)
+    - [排序规则](#排序规则)
+    - [CHAR和VARCHAR](#char和varchar)
+    - [BINARY和VARBINARY](#binary和varbinary)
     - [BLOB和TEXT](#blob和text)
       - [BLOB的存储方式](#blob的存储方式)
+    - [ENUM和SET类型](#enum和set类型)
 - [第九章 索引](#第九章-索引)
   - [introduce](#introduce)
   - [缓冲池](#缓冲池)
@@ -24,7 +39,73 @@
 
 
 # 第二章 数据类型  
+
+## 类型  
+### Unsigned  
+UNSIGNED属性就是将数字类型无符号化。尽量不要使用UNSIGNED，因为可能会带来一些意想不到的效果，比如1-2时可能会得到4294967295。  
+### Zerofill  
+int(4)：表示不足宽度时会填充0，但不影响实际的存储内容。  
+### SQL MODE  
+STRICT_TRANS_TABLES：在该模式下，如果一个值不能插入到一个事务表（例如表的存储引擎为InnoDB）中，则中断当前的操作不影响非事务表（例如表的存储引擎为MyISAM）。  
+ALLOW_INVALID_DATES：该选项并不完全对日期的合法性进行检查，只检查月份是否在1～12之间，日期是否在1～31之间。该模式仅对DATE和DATETIME类型有效，而对TIMESTAMP无效，因为TIMESTAMP总是要求一个合法的输入。  
+ANSI_QUOTES：启用ANSI_QUOTES后，不能用双引号来引用字符串，因为它将被解释为识别符。  
+ERROR_FOR_DIVISION_BY_ZERO：在INSERT或UPDATE过程中，如果数据被零除（或MOD（X，0）），则产生错误（否则为警告）。如果未给出该模式，那么数据被零除时MySQL返回NULL。如果用到INSERT IGNORE或UPDATEIGNORE中，MySQL生成被零除警告，但操作结果为NULL。  
+HIGH_NOT_PRECEDENCE NOT：操作符的优先顺序是表达式。例如，NOT aBETWEEN b AND c被解释为NOT（a BETWEEN b AND c），在一些旧版本MySQL中， 前面的表达式被解释为（NOT a）BETWEEN b AND c。启用HIGH_NOT_PRECEDENCE SQL模式，可以获得以前旧版本的更高优先级的结果。（提高not运算符的优先级）  
+PAD_CHAR_TO_FULL_LENGTH：对于CHAR类型字段，不要截断空洞数据。空洞数据就是自动填充值为0x20的数据。  
+
+## 日期和时间  
+| 类型 | 空间（字节） |   
+| :-: | :-: |  
+|datetime|8|  
+|date|3|  
+|timestamp|4|  
+|year|1|  
+|time|3|  
+
+datetime，存储年月日时分秒，可以表达的日期范围为“1000-01-0100：00：00”到“9999-12-31 23：59：59”。  
+date，日期范围为“1000-01-01”到“9999-12-31”。  
+timestamp，显示的范围为“1970-01-0100:00:00”UTC到“2038-01-19 03:14:07”UTC。其实际存储的内容为“1970-01-0100:00:00”到当前时间的毫秒数。可指定默认值，可以设置为执行UPDATE时更新为当前时间（ON UPDATE CURRENT_TIMESTAMP，没有实际更新内容时不会修改）。  
+year，类型占用1字节，并且在定义时可以指定显示的宽度为YEAR（4）或YEAR（2），YEAR（4），其显示年份的范围为1901～2155；对于YEAR（2），其显示年份的范围为1970～2070。在YEAR（2）的设置下，00～69代表2000～2069年。  
+time，显示的范围为“-838：59：59”～“838：59：59”。TIME类型不仅可以用来保存一天中的时间，也可以用来保存时间间隔。  
+
+### 相关函数  
+NOW、CURRENT_TIMESTAMP和SYSDATE均返回当前时间，前两者相同均返回执行此sql语句的时间，SYSDATE返回执行到它时的时间。NOW（）函数根据使用方式可以返回时间，也可以返回一个数字。   
+
+## 数字类型  
+### 整型  
+### 浮点型  
+MySQL数据库支持两种浮点类型：单精度的FLOAT类型及双精度的DOUBLEPRECISION类型。这两种类型都是非精确的类型，经过一些操作后并不能保证运算的正确性。  
+### 高精度  
+DECIMAL和NUMERIC类型在MySQL中被视为相同的类型，用于保存必须为确切精度的值。
+salary DECIMAL(5,2)  
+在上述例子中，5是精度，2是标度。精度表示保存值的主要位数，标度表示小数点后面可以保存的位数。   
+### 位类型  
+即BIT数据类型可用来保存位字段的值。BIT（M）类型表示允许存储M位数值，M范围为1到64，占用的空间为（M+7）/8字节。左端填0
+
+
+
 ## 字符类型  
+utf8（utf8mb3）、utf8mb4，utf8mb3最大占用3个字节空间，后者最大占用4字节。对BMP（Basic Multilingual Plane）字符的存储，utf8mb3和utf8mb4两者是完全一样的，区别只是utf8mb4对扩展字符的支持。  
+MySQL支持为各列设置不同字符集。  
+
+对于Unicode编码的字符集，强烈建议将所有的CHAR字段设置为VARCHAR字段，因为对于CHAR字段，数据库会保存最大可能的字节数。例如，对于CHAR（30），数据库可能存储90字节的数据。  
+### 排序规则  
+utf8字符集默认的排序规则是utf8_general_ci。之前介绍过_ci结尾表示大小写不敏感。  
+utf8_bin是按二进制排序，区分大小写。  
+排序规则会影响索引。  
+
+### CHAR和VARCHAR  
+CHAR（N）用来保存固定长度的字符串，VARCHAR（N）用来保存变长字符类型。对于CHAR类型，N的范围为0～255，对于VARCHAR类型，N的范围为0～65535。CHAR（N）和VARCHAR（N）中的N都代表字符长度，而非字节长度。  
+对于CHAR类型的字符串，MySQL数据库会自动对存储列的右边进行填充（RightPadded）操作，直到字符串达到指定的长度N。  
+CHAR适合存储很短的字符串，或者所有值都接近同一个长度。例如密码md5。  
+
+VARCHAR类型存储变长字段的字符类型，与CHAR类型不同的是，其存储时需要在前缀长度列表加上实际存储的字符长度，该字符占用1～2字节的空间。当存储的字符串长度小于255字节时，其需要1字节的空间，当大于255字节时，需要2字节的空间。对于有些多字节的字符集类型，其CHAR和VARCHAR在存储方法上是一样的，同样需要为长度列表加上字符串的值。  
+VARCHAR适合存储长度不定的内容，较char更节省空间，因其存储变长所以update时会分裂页导致内存碎片。适合存储不常常更新的内容。  
+
+### BINARY和VARBINARY  
+BINARY和VARBINARY与前面介绍的CHAR和VARCHAR类型有点类似，BINARY和VARBINARY没有字符集的概念，对其排序和比较都是按照二进制值进行对比。  
+
+
 ### BLOB和TEXT  
 BLOB是用来存储二进制大数据类型的，根据存储长度的不同可分为4种：TINYBLOB(2<sup>8</sup>字节)，BLOB（2<sup>16</sup>），MEDIUMBLOB（2<sup>24</sup>），LONGBLOB（2<sup>32</sup>），TEXT类型类似。  
 
@@ -35,7 +116,14 @@ notice：
 1. 在BLOB和TEXT类型的列上创建索引时，必须制定索引前缀的长度。  
 2. BLOB和TEXT类型的列不能有默认值。  
 3. 在排序时只使用列的前max_sort_length（默认1024，客户端运行时可更改）个字节。  
-4. 在有些存储引擎内部，比如InnoDB存储引擎，会将大VARCHAR类型字符串（如VARCHAR（65530））自动转化为TEXT或BLOB类型
+4. 在有些存储引擎内部，比如InnoDB存储引擎，会将大VARCHAR类型字符串（如VARCHAR（65530））自动转化为TEXT或BLOB类型  
+ 
+### ENUM和SET类型  
+ENUM和SET类型都是集合类型，不同的是ENUM类型最多可枚举65536个元素，而SET类型最多枚举64个元素。  
+MySQL不支持传统的CHECK约束，因此通过ENUM和SET类型并结合SQL_MODE可以解决一部分问题。如下：  
+sex ENUM('male','female')
+SET SQL_MODE='strict_trans_tables';
+若插入不在集合中的值时会报错。  
 
 # 第九章 索引  
 
