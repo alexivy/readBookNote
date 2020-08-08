@@ -14,6 +14,19 @@
       - [NATURAL LANGUAGE](#natural-language)
       - [Boolean](#boolean)
       - [Query Expansion](#query-expansion)
+- [第6章 锁](#第6章-锁)
+  - [lock与latch](#lock与latch)
+  - [锁](#锁)
+    - [类型](#类型)
+    - [一致性非锁定读 与 MVCC](#一致性非锁定读-与-mvcc)
+    - [一致性锁定读](#一致性锁定读)
+    - [自增长与锁](#自增长与锁)
+    - [外键和锁](#外键和锁)
+  - [锁的算法](#锁的算法)
+    - [幻读 aka Phantom Problem](#幻读-aka-phantom-problem)
+    - [关于阻塞和死锁](#关于阻塞和死锁)
+  - [锁升级](#锁升级)
+  - [mysql的事务隔离级别](#mysql的事务隔离级别)
 
 
 # 第5章 索引与算法（待完善）  
@@ -127,3 +140,84 @@ MySQL数据库允许使用IN BOOLEAN MODE修饰符来进行全文检索。
 #### Query Expansion  
 全文检索的扩展查询。该查询分为两个阶段。第一阶段：根据搜索的单词进行全文索引查询。第二阶段：根据第一阶段产生的分词再进行一次全文检索的查询。  
 例：第一阶段搜索的词为MicroSoft，搜索结果为一条：MicroSoft Windows，第二阶段以MicroSoft、Windows为搜索词，返回包含这两个词的结果。  
+
+
+# 第6章 锁  
+数据库系统使用锁是为了支持对共享资源进行并发访问，提供数据的完整性和一致性。  
+MyISAM引擎，其锁是表锁设计。并发情况下的读没有问题，但是并发插入时的性能要差一些。  
+
+## lock与latch  
+latch一般称为闩锁（轻量级的锁），因为其要求锁定的时间必须非常短。若持续的时间长，则应用的性能会非常差。在InnoDB存储引擎中，latch又可以分为mutex（互斥量）和rwlock（读写锁）。其目的是用来保证并发线程操作临界资源的正确性，并且通常没有死锁检测的机制。  
+lock用来锁定的是数据库中的对象，如表、页、行。并且一般lock的对象仅在事务commit或rollback后进行释放（不同事务隔离级别释放的时间可能不同）。有死锁机制。lock在整个事务过程中持续。  
+
+## 锁  
+### 类型  
+InnoDB实现了以下两种行级锁：共享锁（S Lock），允许事务读一行数据。排他锁（X Lock），允许事务删除或更新一行数据。  
+InnoDB存储引擎支持多粒度（granular）锁定，这种锁定允许事务在行级上的锁和表级上的锁同时存在，支持意向锁（Intention Lock）。加锁时需要对更粗粒度的对象先加意向锁。  
+两种意向锁：1）意向共享锁（IS Lock），事务想要获得一张表中某几行的共享锁。2）意向排他锁（IX Lock），事务想要获得一张表中某几行的排他锁。  
+从InnoDB1.0开始，在INFORMATION_SCHEMA架构下添加了表INNODB_TRX、INNODB_LOCKS、INNODB_LOCK_WAITS。通过这三张表，用户可以更简单地监控当前事务并分析可能存在的锁问题。  
+
+### 一致性非锁定读 与 MVCC  
+一致性的非锁定读（consistent nonlocking read）是指InnoDB存储引擎通过行多版本控制（multi versioning）的方式来读取当前执行时间数据库中行的数据。如果读取的行正在执行DELETE或UPDATE操作，这时读取操作不会因此去等待行上锁的释放。相反地，InnoDB存储引擎会去读取行的一个快照数据。不需要等待访问的行上X锁的释放，快照数据是指该行的之前版本的数据，该实现是通过undo段来完成。而undo用来在事务中回滚数据，因此快照数据本身是没有额外的开销。  
+
+快照数据其实就是当前行数据之前的历史版本，每行记录可能有多个版本。一个行记录可能有不止一个快照数据，一般称这种技术为行多版本技术。由此带来的并发控制，称之为多版本并发控制（MultiVersion Concurrency Control，MVCC）。  
+
+在事务隔离级别READ COMMITTED和REPEATABLE READ（InnoDB存储引擎的默认事务隔离级别）下，InnoDB存储引擎使用非锁定的一致性读。然而，对于快照数据的定义却不相同。  
+
+在READ COMMITTED事务隔离级别下，对于快照数据，非一致性读总是读取被锁定行的最新一份快照数据。  
+在REPEATABLE READ事务隔离级别下，对于快照数据，非一致性读总是读取事务开始时的行数据版本。  
+
+### 一致性锁定读  
+InnoDB存储引擎对于SELECT语句支持两种一致性的锁定读（locking read）操作：1） SELECT…FOR UPDATE（行记录加一个X锁）；2） SELECT…LOCK IN SHARE MODE（对读取的行记录加一个S锁）。注意：SELECT…FOR UPDATE，SELECT…LOCK IN SHARE MODE必须在事务中，务必加上BEGIN，STARTTRANSACTION或者SET AUTOCOMMIT=0。  
+
+### 自增长与锁  
+复杂。。推荐看原书。以下概述：  
+参数innodb_autoinc_lock_mode来控制自增长的模式，该参数的默认值为1。  
+为0时，会通过AUTO-INC locking方式，在插入时会短暂的加表锁（会很快释放，不会像其他锁持续到事务结束）。但并发插入性能较差。  
+为1时，对于simple insert，会用互斥量mutex堆内存中的计数器进行累加的操作，如果不会滚的话自增的列是连续的。对于其他的同为0时相同。  
+为2时，对于insert like（所有插入语句），都会用互斥量。并发性能好，但自增长的值可能不连续（对于同一个语句来说它所得到的auto_incremant值可能不是连续的。参照下面notice），而且对于statement-base replication会出现问题，应使用row-base replication。  
+notice：两个会话中分别插入ab，cd，那么既有可能是（1,a）,(2,b)，（3，c），（4，d）也有可能是（3，b），（2，c）。  
+
+### 外键和锁  
+在InnoDB存储引擎中，对于一个外键列，如果没有显式地对这个列加索引，InnoDB存储引擎自动对其加一个索引，因为这样可以避免表锁。  
+对于外键值的插入或更新，首先需要查询父表中的记录，即SELECT父表。但是对于父表的SELECT操作，不是使用一致性非锁定读的方式，因为这样会发生数据不一致的问题，因此这时使用的是SELECT…LOCK IN SHARE MODE方式，即主动对父表加一个S锁。  
+
+## 锁的算法  
+InnoDB存储引擎有3种行锁的算法，其分别是：  
+Record Lock：单个行记录上的锁  
+Gap Lock：间隙锁，锁定一个范围，但不包含记录本身  
+Next-Key Lock∶Gap Lock+Record Lock，锁定一个范围，并且锁定记录本身  
+
+当查询的索引含有唯一属性时，InnoDB存储引擎会对Next-Key Lock进行优化，将其降级为Record Lock，即仅锁住索引本身，而不是范围。  
+
+### 幻读 aka Phantom Problem  
+在默认的事务隔离级别下，即REPEATABLE READ下，InnoDB存储引擎采用Next-Key Locking机制来避免Phantom Problem（幻像问题）。  
+Phantom Problem是指在同一事务下，连续执行两次同样的SQL语句可能导致不同的结果，第二次的SQL语句可能会返回之前不存在的行。  
+
+脏读： 读到未提交的数据。  
+不可重复读： 读到已提交的数据。InnoDB存储引擎中，通过使用Next-Key Lock算法来避免不可重复读的问题。  
+丢失更新，select接下来会更改的数据时用select ... for update。  
+
+
+### 关于阻塞和死锁  
+参数innodb_lock_wait_timeout用来控制等待的时间（默认是50秒），innodb_rollback_on_timeout用来设定是否在等待超时时对进行中的事务进行回滚操作（默认是OFF，代表不回滚）。  
+
+wait-for graph是一种较为主动的死锁检测机制，在每个事务请求锁并发生等待时都会判断是否存在回路，若存在则有死锁，通常来说InnoDB存储引擎选择回滚undo量最小的事务。wait-for graph的死锁检测通常采用深度优先的算法实现。  
+
+## 锁升级  
+锁升级（Lock Escalation）是指将当前锁的粒度降低。锁升级会导致并发性能降低。  
+InnoDB存储引擎不存在锁升级的问题。因为其不是根据每个记录来产生行锁的，相反，其根据每个事务访问的每个页对锁进行管理的，采用的是位图的方式。因此不管一个事务锁住页中一个记录还是多个记录，其开销通常都是一致的。（暂时没查到位图方式的资料，猜测是优化的数据结构减少了锁的查找与存储开销）。  
+
+## mysql的事务隔离级别  
+
+| 事务隔离级别 | 丢失修改 | 脏读 | 不可重复读 |  
+| :- | :-: |:-: |:-: |  
+|读未提交（read-uncommitted）| 否 | 是 | 是 |  
+|不可重复读（read-committed）| 否 | 否 | 是 |  
+|可重复读（repeatable-read）| 否 | 否 | 否 |  
+|串行化（serializable）| 否 | 否 | 否 |  
+
+上表不可重复读的概念是高教第五版本数据库系统概论中的定义。包括1）两次读不一致；2）再次读部分消失；3）再次读多出部分。其中后两者有时也称为幻读。  
+Mysql在可重复读（repeatable-read）即默认事务级别下，使用Next-Key Lock锁的算法，因此避免幻读的产生。  
+
+
