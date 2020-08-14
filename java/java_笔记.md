@@ -16,6 +16,9 @@
 - [设计模式](#设计模式)
 - [代码执行顺序](#代码执行顺序)
 - [异常](#异常)
+- [不可变对象](#不可变对象)
+- [ThreadLocal](#threadlocal)
+- [实现单例的几种方法](#实现单例的几种方法)
 
 
 # java  
@@ -187,3 +190,23 @@ RuntimeException的异常包含下面几种情况：·错误的类型转换。·
 
 不是派生于RuntimeException的异常包括：·试图在文件尾部后面读取数据。·试图打开一个不存在的文件。·试图根据给定的字符串查找Class对象，而这个字符串表示的类并不存在。
 
+# 不可变对象  
+参考：[此处](https://www.cnblogs.com/dolphin0520/p/10693891.html)  
+总结一下，不可变对象或者不允许对其属性进行操作，或者对其属性的修改会返回一个新对象。通过反射的方法可以改变不可变对象。  
+String就是最常用的不可变对象。  
+不可变对象的使用场景：1、并发编程；2、防止对象被意外修改；3、避免在集合类的使用过程中出现错误。  
+
+
+# ThreadLocal  
+参考：[此处](https://www.cnblogs.com/xzwblog/p/7227509.html)  
+Thread对象有属性threadLocalMap（是ThreadLocal的内部类），threadLocalMap中entry  
+ThreadLocal对象set和get时均是从ThreadLocalMap中取值，Key为ThreadLocal的实例tl，存取时会获得实例tl的hashCode，由hashCode和map的len（2的倍数）来确定（方法是按位与，这种情况下与取模相同）在map中entry数组的下标。  
+map中entry extends 弱引用，tl的弱引用，若tl没有外部的强引用 gc时tl会变为null，entry.get()方法会返回null，map的set或getEntry时会删除get方法返回null的节点，但若没有执行这两个方法且线程迟迟不结束，entry.value就会占用内存且无法被使用，所以建议手动调用tl.remove方法。  
+
+
+# 实现单例的几种方法  
+1、synchronized 构造方法  
+2、将单例作为类的static属性，在类加载时单例会被赋值  
+3、double check ：在构造方法中对类加锁，枷锁前后两次检测是否为null  
+4、将单例作为类静态内部类InnerClass中的static属性，在get方法中返回InnerClass.instance，与2不同的是类加载时不会创建单例，调用get方法时才会创建。  
+5、枚举类。  
