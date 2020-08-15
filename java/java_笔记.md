@@ -19,6 +19,9 @@
 - [不可变对象](#不可变对象)
 - [ThreadLocal](#threadlocal)
 - [实现单例的几种方法](#实现单例的几种方法)
+- [接口 interface](#接口-interface)
+- [线程 进程](#线程-进程)
+- [设计模式](#设计模式-1)
 
 
 # java  
@@ -192,7 +195,7 @@ RuntimeException的异常包含下面几种情况：·错误的类型转换。·
 
 # 不可变对象  
 参考：[此处](https://www.cnblogs.com/dolphin0520/p/10693891.html)  
-总结一下，不可变对象或者不允许对其属性进行操作，或者对其属性的修改会返回一个新对象。通过反射的方法可以改变不可变对象。  
+总结一下，不可变对象或者不允许对其属性进行操作，或者对其属性的修改会返回一个新对象。通过反射的方法可以改变不可变对象。（final属性也可以通过反射改变）  
 String就是最常用的不可变对象。  
 不可变对象的使用场景：1、并发编程；2、防止对象被意外修改；3、避免在集合类的使用过程中出现错误。  
 
@@ -210,3 +213,26 @@ map中entry extends 弱引用，tl的弱引用，若tl没有外部的强引用 g
 3、double check ：在构造方法中对类加锁，枷锁前后两次检测是否为null  
 4、将单例作为类静态内部类InnerClass中的static属性，在get方法中返回InnerClass.instance，与2不同的是类加载时不会创建单例，调用get方法时才会创建。  
 5、枚举类。  
+
+
+# 接口 interface  
+接口中的方法都自动地被设置为public一样，接口中的域将被自动设为publicstatic final。  
+可以为接口方法提供一个默认实现。必须用default修饰符标记这样一个方法。  
+Java SE 8中，允许在接口中增加静态方法。  
+
+超类优先，接口有默认实现时需要明确。  
+
+
+# 线程 进程  
+线程是调度的最小单位，进程是资源分配的最小单位。  
+每个进程拥有自己的一整套变量，而线程则共享数据，线程间通讯效率更高，创建、撤销一个线程比启动新进程的开销要小得多。  
+
+# 设计模式  
+设计模式可以分为三大类：创建型模式（Creational Patterns）、结构型模式（Structural Patterns）、行为型模式（Behavioral Patterns）。  
+创建型模式：
+工厂模式（Factory Pattern）
+抽象工厂模式（Abstract Factory Pattern）
+单例模式（Singleton Pattern）
+建造者模式（Builder Pattern）
+原型模式（Prototype Pattern）
+[参考](https://www.runoob.com/design-pattern/design-pattern-intro.html)
