@@ -1,7 +1,11 @@
 - [java](#java)
+  - [volatile详解](#volatile详解)
+  - [synchronized](#synchronized)
   - [HashMap](#hashmap)
+    - [快速失败（fail - fast）](#快速失败fail---fast)
   - [Collections.synchronizedMap()](#collectionssynchronizedmap)
   - [ConcurrentHashMap](#concurrenthashmap)
+    - [安全失败（ fail — safe ）](#安全失败-fail--safe-)
   - [ArrayList](#arraylist)
   - [LinkedList](#linkedlist)
   - [String StringBuffer StringBuilder](#string-stringbuffer-stringbuilder)
@@ -28,17 +32,85 @@
 
 无特殊说明均针对java-8  
 
+## volatile详解  
+volatile关键字为实例域的同步访问提供了一种免锁机制。  
+volatile的特性：三点，保证可见性、但不保证原子性、禁止指令重排序优化。  
+“可见性”是指当一条线程修改了这个变量的值，新值对于其他线程来说是可以立即得知的。通过线程修改后立即将新值写回主内存（assign store操作紧密相连），线程每次使用值前都必须先从主内存刷新最新的值（load use操作紧密相连）。  
+
+不保证原子性，所以不是线程安全的，举例子就是多线程多次对volatile修饰的域自增，最后的结果小于预期值。  
+20个线程循环各自对volatile int i操作i++，各1000次，线程安全的话是20000，实则小于20000。  
+原因是，A线程在i++前，会先到主内存中取i=233，B在此时也去取了i=233，A作i++，然后将234写回到主内存中，B作i++，然后也将234写回到主内存中，覆盖了A的修改，类似于数据库中的丢失修改（数据库中一般是加s锁避免）。  
+
+有volatile修饰的变量，赋值后（前面mov%eax，0x150(%esi)这句便是赋值操作）多执行了一个“lock addl$0x0，(%esp)”操作，这个操作的作用相当于一个内存屏障，指重排序时不能把后面的指令重排序到内存屏障之前的位置。禁止指令重排序的意义：指令重排序会干扰程序的并发执行。java中有一些规定两项操作之间的偏序关系的原则称为先行发生原则，其一程序次序规则是指，在一个线程内，按照控制流顺序，书写在前面的操作先行发生于书写在后面的操作。注意，这里说的是控制流顺序而不是程序代码顺序，因为要考虑分支、循环等结构。  
+
+## synchronized  
+Java中的每一个对象都有一个内部锁，synchronized关键字就是去获取内部的对象锁。  
+synchronized修饰静态方法时，锁加在类上；修饰非静态方法时，锁加在实例对象上。  
+
+特点有：
+1.可重入性（方法a中调用方法b，b可以获得a获得的锁）；  
+2.不可中断性（锁被其他线程持有时只能等待，lock类有中断的能力 ***MORE*** ）。  
+
+Java虚拟机的指令集中有monitorenter和monitorexit两条指令来支持synchronized关键字的语义。  
+moniterenter指令以栈顶元素作为锁开启同步。  
+minitorexit指令推出同步。  
+为了保证在方法异常完成时monitorenter和monitorexit指令依然可以正确配对执行，编译器会自动产生一个异常处理程序，这个异常处理程序声明可处理所有的异常，它的目的就是用来执行monitorexit指令。
+
 ## HashMap  
 DEFAULT_LOAD_FACTOR=0.75（float型）  
 数据结构是：node数组链表红黑树，链表尾插法（保持它的前后顺序，避免多线程下可能出现的环）  
-插入新的kv对时会判断是否大于TREEIFY_THRESHOLD，大于就将其树化。还会判断元素数是否大于阈值，大于就会resize扩容，初始容量是16，每次扩容到原来的2倍。  
-不是线程安全的
+插入新的kv对时会判断是否大于TREEIFY_THRESHOLD，大于就将其树化。还会判断元素数是否大于阈值（与负载因子相关），大于就会resize扩容，初始容量是16，每次扩容到原来的2倍。  
+不是线程安全的。why？：java 8中多线程put会丢失元素，detail：当两个线程同时向一个空位插入值时，它们可能均检测到table[i]==null 然后分别执行 table[ i]=Value_A，table[ i]=Value_B，此时其中一个线程写入的元素就会丢失。java 7中还有可能出现多线程resize()时产生环的情况，由于采用的是头插法，resize过程中元素的前后顺序会改变，detail：resize()时会调用transfer()函数，transfer()函数中会将table数组中的元素迁移到newTable，若线程A进行transfer时表的i位置为[ {3}->{7}->null ]，执行e={3}后，线程B执行，完成了transfer，将i位置改为了[ {7}->{3}->null ]，然后A继续执行，next=e.next(=null)，e.next=newTable[ i]（{3}.next={7}），然后完成了transfer，此时i位置就为[ {7}->{3}->{7}->... ]产生了环。  
+
+### 快速失败（fail - fast）  
+此外用迭代器遍历HashMap中的元素时，若集合在遍历期间发生了修改（自己或其他线程进行修改），就会抛出Concurrent Modification Exception，这时java.util包下的集合类都有的快速失败机制。原理就是这个过程中使用一个 modCount 变量，集合在被遍历期间如果内容发生变化，就会改变modCount的值，每当迭代器使用hashNext()/next()遍历下一个元素之前，都会检测modCount变量是否为expectedmodCount值，是的话就继续遍历；否则抛出异常，终止遍历。  
+但由于多次操作集合后modCount的值可能变回去，因此即使其他线程修改了集合，也可能不会抛出前述的并发修改异常。  
 
 ## Collections.synchronizedMap()  
 线程安全，内部维护了一个mutex锁，对map操作前会用synchronized关键字锁对象来达到线程安全。  
 
 ## ConcurrentHashMap
-利用synchronized和cas实现。put元素时会先cas尝试，失败后会Synchronized操作，性能比Collections.synchronizedMap好一些。
+利用synchronized和cas实现它的并发安全性。put元素时会先cas尝试，失败后会Synchronized操作，性能比Collections.synchronizedMap好一些。  
+Node的值和next采用了volatile去修饰，保证了可见性，并且也引入了红黑树，在链表大于一定值的时候会转换（默认是8）。  
+ConcurrentHashMap的put操作大致可以分为以下步骤：  
+
+根据 key 计算出 hashcode 。
+
+判断是否需要进行初始化。
+
+即为当前 key 定位出的 Node，如果为空表示当前位置可以写入数据，利用 CAS 尝试写入，失败则自旋保证成功。
+
+如果当前位置的 hashcode == MOVED == -1,则需要进行扩容。
+
+如果都不满足，则利用 synchronized 锁写入数据。
+
+如果数量大于 TREEIFY_THRESHOLD 则要转换为红黑树。
+
+ConcurrentHashMap的get操作大致步骤：  
+
+根据计算出来的 hashcode 寻址，如果就在桶上那么直接返回值。
+
+如果是红黑树那就按照树的方式获取值。
+
+就不满足那就按照链表的方式遍历获取值。
+
+
+CAS写入，是调用Unsafe类里的native方法实现的，四个参数，一个是node数组，一个是下标i，一个是期望值，一个是新值。  
+CAS 是乐观锁的一种实现方式，是一种轻量级锁，CAS 操作的流程如下：线程在读取数据时不进行加锁，在准备写回数据时，比较原值是否修改，若未被其他线程修改则写回，若已被修改，则重新执行读取流程。  
+这是一种乐观策略，认为并发操作并不总会发生。  
+
+CAS存在的问题，ABA！（其他线程对其进行了修改但未被检测到）。解决方法：1、带一个版本号，比较值时还比较版本号，每次修改值时将版本号加1。2、时间戳！类似于版本号。  
+
+
+### 安全失败（ fail — safe ）  
+
+采用安全失败机制的集合容器，在遍历时不是直接在集合内容上访问的，而是先复制原有集合内容，在拷贝的集合上进行遍历。
+
+原理：由于迭代时是对原集合的拷贝进行遍历，所以在遍历过程中对原集合所作的修改并不能被迭代器检测到，所以不会触发Concurrent Modification Exception。
+
+缺点：基于拷贝内容的优点是避免了Concurrent Modification Exception，但同样地，迭代器并不能访问到修改后的内容，即：迭代器遍历的是开始遍历那一刻拿到的集合拷贝，在遍历期间原集合发生的修改迭代器是不知道的。
+
+场景：java.util.concurrent包下的容器都是安全失败，可以在多线程下并发使用，并发修改。
 
 ## ArrayList  
 数据结构是object数组，每次扩容到原来的1.5倍（向下取整），数组所以在特定位置的操作会伴随元素的复制，适合写读，不适合频繁删除中间元素的情况  
