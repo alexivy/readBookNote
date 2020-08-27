@@ -1,6 +1,11 @@
 - [java](#java)
+  - [hashCode equals](#hashcode-equals)
+  - [==](#)
   - [volatile详解](#volatile详解)
   - [synchronized](#synchronized)
+  - [集合](#集合)
+  - [TreeSet](#treeset)
+  - [TreeMap](#treemap)
   - [HashMap](#hashmap)
     - [快速失败（fail - fast）](#快速失败fail---fast)
   - [Collections.synchronizedMap()](#collectionssynchronizedmap)
@@ -33,6 +38,36 @@
 
 无特殊说明均针对java-8  
 
+
+## hashCode equals  
+object中的默认实现：  
+equals默认实现是``` return (this == obj);//是比较两个对象的内存地址```  
+hashCode是native方法，不同jdk版本不同，多数情况为内存地址转化成的int值。[native源码](https://links.jianshu.com/go?to=https%3A%2F%2Fgithub.com%2FJetBrains%2Fjdk8u_hotspot%2Fblob%2Fmaster%2Fsrc%2Fshare%2Fvm%2Fruntime%2Fsynchronizer.cpp%23L560)  
+为什么重写equals方法就一定要重写hashCode方法呢？  
+在java8的源码中有要求equals方法判断两个对象相等，那么hashCode值一定要相同：  
+```
+If two objects are equal according to the {@code equals(Object)}
+method, then calling the {@code hashCode} method on each of
+the two objects must produce the same integer result.
+```
+如果不重写，可能导致如下情况：  a.equals(b)==true ; (a.hasCode() != b.hashConde())== true ;  
+这种情况下可能会引发一些错误，如会导致java中的HashMap中可能同时存在a和b两个key。  
+
+## ==   
+比较的是两个对象在内存中的地址是否相同。举例如下：  
+```
+int a=1;
+Integer b=Integer.parseInt("1");
+Integer c=new Integer("1");
+System.out.println("a==b? "+(a==b));
+System.out.println("a==c? "+(a==c));
+System.out.println("b==c? "+(b==c));
+输出如下：
+a==b? true
+a==c? true
+b==c? false
+```
+
 ## volatile详解  
 volatile关键字为实例域的同步访问提供了一种免锁机制。  
 volatile的特性：三点，保证可见性、但不保证原子性、禁止指令重排序优化。  
@@ -57,14 +92,37 @@ moniterenter指令以栈顶元素作为锁开启同步。
 minitorexit指令推出同步。  
 为了保证在方法异常完成时monitorenter和monitorexit指令依然可以正确配对执行，编译器会自动产生一个异常处理程序，这个异常处理程序声明可处理所有的异常，它的目的就是用来执行monitorexit指令。
 
+## 集合  
+
+队列：循环数组队列_ArrayDeque，链表队列_LinkedList。  
+
+HashSet迭代过程中是无序的。  
+
+java中的集合。  
+![image](/image/202008261354java.PNG)  
+
+优先级队列，数据结构是堆。  
+
+
+## TreeSet  
+
+TreeSet是一个有序集合。在对有序集合进行遍历时，每个值将自动地按照排序后的顺序呈现。排序是用树结构（红黑树）完成的。如果树中包含n个元素，查找新元素的正确位置平均需要log2n次比较。  
+
+## TreeMap  
+
+
+
 ## HashMap  
+
 DEFAULT_LOAD_FACTOR=0.75（float型）  
 数据结构是：node数组链表红黑树，链表尾插法（保持它的前后顺序，避免多线程下可能出现的环）  
 插入新的kv对时会判断是否大于TREEIFY_THRESHOLD，大于就将其树化。还会判断元素数是否大于阈值（与负载因子相关），大于就会resize扩容，初始容量是16，每次扩容到原来的2倍。  
 不是线程安全的。why？：java 8中多线程put会丢失元素，detail：当两个线程同时向一个空位插入值时，它们可能均检测到table[i]==null 然后分别执行 table[ i]=Value_A，table[ i]=Value_B，此时其中一个线程写入的元素就会丢失。java 7中还有可能出现多线程resize()时产生环的情况，由于采用的是头插法，resize过程中元素的前后顺序会改变，detail：resize()时会调用transfer()函数，transfer()函数中会将table数组中的元素迁移到newTable，若线程A进行transfer时表的i位置为[ {3}->{7}->null ]，执行e={3}后，线程B执行，完成了transfer，将i位置改为了[ {7}->{3}->null ]，然后A继续执行，next=e.next(=null)，e.next=newTable[ i]（{3}.next={7}），然后完成了transfer，此时i位置就为[ {7}->{3}->{7}->... ]产生了环。  
 
 ### 快速失败（fail - fast）  
-此外用迭代器遍历HashMap中的元素时，若集合在遍历期间发生了修改（自己或其他线程进行修改），就会抛出Concurrent Modification Exception，这时java.util包下的集合类都有的快速失败机制。原理就是这个过程中使用一个 modCount 变量，集合在被遍历期间如果内容发生变化，就会改变modCount的值，每当迭代器使用hashNext()/next()遍历下一个元素之前，都会检测modCount变量是否为expectedmodCount值，是的话就继续遍历；否则抛出异常，终止遍历。  
+此外用迭代器遍历HashMap中的元素时，若集合在遍历期间发生了修改（自己或其他线程进行修改），就会抛出Concurrent Modification Exception，这时java.util包下的集合类都有的快速失败机制。  
+每个迭代器都维护一个独立的计数值。在每个迭代器方法的开始处检查自己改写操作的计数值是否与集合的改写操作计数值一致。  
+原理就是这个过程中使用一个 modCount 变量，集合在被遍历期间如果内容发生变化，就会改变modCount的值，每当迭代器使用hashNext()/next()遍历下一个元素之前，都会检测modCount变量是否为expectedmodCount值，是的话就继续遍历；否则抛出异常，终止遍历。  
 但由于多次操作集合后modCount的值可能变回去，因此即使其他线程修改了集合，也可能不会抛出前述的并发修改异常。  
 
 ## Collections.synchronizedMap()  
