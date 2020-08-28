@@ -5,9 +5,13 @@
 # 读书笔记  
 ## java  
 [深入理解java虚拟机_读书笔记](/java/深入理解java虚拟机_读书笔记.md)  
+[java笔记](/java/java_笔记.md)  
 
 ## Redis  
 [Redis设计与实现_读书笔记](/redis/Redis设计与实现_读书笔记.md)  
+
+## linux  
+[linux笔记](/linux/笔记.md)  
 
 ## MyBatis  
 [MyBatis_笔记](/mybatis/MyBatis_笔记.md)  
