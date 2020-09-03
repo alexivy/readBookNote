@@ -23,7 +23,6 @@
   - [反射](#反射)
     - [反射的缺点](#反射的缺点)
   - [命令](#命令)
-- [设计模式](#设计模式)
 - [代码执行顺序](#代码执行顺序)
 - [异常](#异常)
 - [不可变对象](#不可变对象)
@@ -31,8 +30,9 @@
 - [实现单例的几种方法](#实现单例的几种方法)
 - [接口 interface](#接口-interface)
 - [线程 进程](#线程-进程)
-- [设计模式](#设计模式-1)
+- [设计模式](#设计模式)
 - [红黑树](#红黑树)
+- [面向对象与面向过程](#面向对象与面向过程)
 
 
 # java  
@@ -189,6 +189,14 @@ StringBuiler性能比Buffer稍高，但线程不安全。
 ## 多线程  
 java自带的线程池底层都是ThreadPoolExecutor实现。它有7个参数：```int corePoolSize,int maximumPoolSize,long keepAliveTime,TimeUnit unit,BlockingQueue<Runnable> workQueue,ThreadFactory threadFactory,RejectedExecutionHandler handler```  
 
+分别是：核心数量，最大数量，存活时间（超过核心线程数后多余的线程最多存活的时间），时间单位，阻塞队列（存储任务），线程工厂，抛弃策略（抛异常，丢新来的，丢等久了的，callerRun调用者执行）。  
+
+ThreadPoolExecutor的实例执行任务的方法有：   
+1、execute(Runnable ins) ，void方法。  
+2、submit（ ） 可传入实现Callable或者Runnable的实例，此方法返回Future<?>，可得的线程返回值。   
+
+Future的get方法在提交的任务完成前会阻塞调用的线程。  
+
 ## jvm->GC  
 年轻代，老年代，元空间。  
 年轻代：eden survivor1、2区（8：1：1），新对象会先放入eden，eden满时会minor gc，垃圾回收器都是复制清除算法。  
@@ -306,11 +314,7 @@ jvisualvm
 jconsole
 
 
-# 设计模式  
-建造者模式：将一个复杂对象的构建与它的表示分离，使得同样的构建过程可以创建不同的表示。  
-适配器模式：将一个类的接口转换成另外一个客户希望的接口。Adapter 模式使得原本由于接口不兼容而不能一起工作的那些类可以一起工作。  
-桥接模式：将抽象部分与它的实现部分分离，使它们都可以独立地变化。  
-代理模式：为其他对象提供一种代理以控制对这个对象的访问。  
+
 
 
 # 代码执行顺序  
@@ -351,19 +355,124 @@ map中entry extends 弱引用，tl的弱引用，若tl没有外部的强引用 g
 
 
 # 实现单例的几种方法  
-1、synchronized 构造方法  
+
+
+1、synchronized get方法  
+<details>
+        <summary>点击查看</summary>
+```
+public class SingleTon {
+    private static  SingleTon singleTon;
+    private SingleTon(){
+    }
+    public static synchronized SingleTon getInstance(){
+        if(singleTon==null){
+            singleTon=new SingleTon();
+        }
+        return singleTon;
+    }
+}
+```
+</details>
+
 2、将单例作为类的static属性，在类加载时单例会被赋值  
-3、double check ：在构造方法中对类加锁，枷锁前后两次检测是否为null  
+
+<details>
+        <summary>点击查看</summary>
+```
+public class SingleTon {
+    private static SingleTon singleTon=new SingleTon();
+    private SingleTon(){
+    }
+    public static SingleTon getInstance(){
+        return singleTon;
+    }
+}
+```
+</details>
+
+
+3、double check 双所检测：在构造方法中对类加锁，加锁前后两次检测是否为null  
+
+<details>
+        <summary>点击查看</summary>
+```
+public class SingleTon {
+    private static volatile SingleTon singleTon;
+    private SingleTon(){
+    }
+    public static  SingleTon getInstance(){
+        if(singleTon==null){
+            synchronized (SingleTon.class){
+                if(singleTon==null){
+                    singleTon=new SingleTon();
+                }
+            }
+        }
+        return singleTon;
+    }
+}
+注：此例子中volatile的主要是禁止重排序，初始化一个实例（SomeType st = new SomeType()）在java字节码中会有4个步骤，申请内存空间，初始化默认值（区别于构造器方法的初始化），执行构造器方法连接引用和实例。这4个步骤后两个有可能会重排序，1234  1243都有可能，造成未初始化完全的对象发布，其他线程使用时出现空指针异常等错误。volatile可以禁止指令重排序，从而避免这个问题。
+参考：https://www.zhihu.com/question/56606703/answer/149894860
+```
+
+</details>
+
 4、将单例作为类静态内部类InnerClass中的static属性，在get方法中返回InnerClass.instance，与2不同的是类加载时不会创建单例，调用get方法时才会创建。  
+
+<details>
+        <summary>点击查看</summary>
+```
+public class SingleTon {
+    private static  SingleTon singleTon;
+    private SingleTon(){
+    }
+    public static SingleTon getInstance(){
+        return InnerClass.ins;
+    }
+    static class InnerClass{
+        public static final SingleTon ins=new SingleTon();
+    }
+}
+```
+</details>
+
 5、枚举类。  
+
+<details>
+        <summary>点击查看</summary>
+```
+public enum  SingleTon {
+    INSTANCE;
+    public Object manyMethod(){
+        return new Object();
+    }
+}
+```
+</details>
+
+
+1、如果单例由不同的类装载器装入，那便有可能存在多个单例类的实例。假定不是远端存取，例如一些servlet容器对每个servlet使用完全不同的类装载器，这样的话如果有两个servlet访问一个单例类，它们就都会有各自的实例。  
+解决方法是指定类加载器来获得Class对象。  
+
+2、如果Singleton实现了java.io.Serializable接口，那么这个类的实例就可能被序列化和复原。不管怎样，如果你序列化一个单例类的对象，接下来复原多个那个对象，那你就会有多个单例类的实例。  
+解决方法是在类中有方法去处理反序列化的过程，并返回原来的单例实例。  
+
+更详细的参考以下：
+
+[参考链接](http://www.blogjava.net/kenzhh/archive/2013/03/15/357824.html)  
 
 
 # 接口 interface  
-接口中的方法都自动地被设置为public一样，接口中的域将被自动设为publicstatic final。  
-可以为接口方法提供一个默认实现。必须用default修饰符标记这样一个方法。  
+接口中的方法都自动地被设置为public一样，接口中的域将被自动设为public static final。  
+
+java中可通过接口的默认实现来继承多个实现，为接口方法提供一个默认实现，必须用default修饰符标记这样一个方法。  
+
 Java SE 8中，允许在接口中增加静态方法。  
 
 超类优先，接口有默认实现时需要明确。  
+
+  
 
 
 # 线程 进程  
@@ -378,6 +487,13 @@ Java SE 8中，允许在接口中增加静态方法。
 单例模式（Singleton Pattern）
 建造者模式（Builder Pattern）
 原型模式（Prototype Pattern）
+
+建造者模式：将一个复杂对象的构建与它的表示分离，使得同样的构建过程可以创建不同的表示。  
+适配器模式：将一个类的接口转换成另外一个客户希望的接口。Adapter 模式使得原本由于接口不兼容而不能一起工作的那些类可以一起工作。  
+桥接模式：将抽象部分与它的实现部分分离，使它们都可以独立地变化。  
+代理模式：为其他对象提供一种代理以控制对这个对象的访问。  
+
+
 [参考](https://www.runoob.com/design-pattern/design-pattern-intro.html)
 
 
@@ -415,3 +531,17 @@ F、N为左子，S为黑，S右子为红，调整：N父P左旋，SR变黑，S�
 注：BEF情况下若B为右子，则步骤中左右对调。  
 
 [参考链接](http://www.360doc.com/content/15/1214/14/14513665_520332407.shtml)
+
+
+# 面向对象与面向过程  
+面向对象的程序是由对象组成，程序中有的对象来自标准库，有的是自行实现的。  
+
+面向过程的程序算法是第一位的，编程时首先要确定如何操作数据，然后再决定如何组织数据，以便于数据操作。  
+
+针对规模较小的问题面向过程的开发更方便，面向对象更加适用于解决规模较大的问题。  
+
+
+对象的三个基本特征：  
+（1）封装，即内部的改动不会对外部产生影响。例如，访问数据的对象可以使用ADO或DAO对象模型，也可以直接使用ODBC API函数，但都不会影响其外部特性。  
+（2）继承，通过派生来解决实现的重用问题。例如，从SalesOrder类派生出WebSalesOrder类，在WebSalesOrder中，可以重载父类的Confirm方法（发邮件而不是传真），也可以自动继承实现父类的Total方法，实现相同的行为。  
+（3）多态（可替代性），不论何时创建了派生类对象，在使用基类对象的地方都可以使用此派生类对象。不同类型的对象就可以处理交互时使用的一组通用消息，并且以它们各自的方式进行。如前面的例子中，WebSalesOrder“is a”SalesOrder，也就是说，在任何使用SalesOrder的地方，都可以使用WebSalesOrder。
