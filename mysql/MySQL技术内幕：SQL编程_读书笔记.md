@@ -127,7 +127,8 @@ SET SQL_MODE='strict_trans_tables';
 
 # 第九章 索引  
 
-## introduce
+## introduce  
+
 说明：更多索引内容参见[MySQL技术内幕：InnoDB存储引擎_读书笔记.md](MySQL技术内幕：InnoDB存储引擎_读书笔记.md#introduce)  
 
 Tip: 可以在SQL语句的表名后接 FORCE INDEX(idx_a) 来强制优化器使用索引idx_a。  
@@ -182,7 +183,7 @@ InnoDB存储引擎是索引组织表（Index Organized Table，IOT），也就�
 #### MyISAM中  
 MyISAM存储引擎中，所有的行数据都存放于MYD文件中，其B+树索引都是辅助索引，存放于MYI文件中。PRIMARY KEY索引和其他索引不同之处在于其必须是唯一的，并且不可为NULL值。其索引页的大小默认为1KB，不可以调整。因为没有聚集索引，其索引叶节点存放的键值不是主键值，而是在MYD文件中的物理位置。  
 
-#### 判断索引的效率。
+#### 判断索引的效率。  
 为什么样的主键建立索引更有价值？  
 
 取值范围小、重复度高的字段（称为低选择性）没有必要建索引。若某个字段取值范围广、几乎没有重复（高选择性）的字段，适合建立B+树索引。  
