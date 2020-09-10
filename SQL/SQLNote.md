@@ -41,7 +41,10 @@ GROUP BY s_id;
 
 ## 查询各科目成绩高的前几名  
 
+
 score表（s_id,c_id,s_score）三列，分别表示（学号，课程号，成绩）。  
+
+查询各门成绩前2的学生（成绩相同的也显示）  
 
 类似问题[leetcode链接](https://leetcode-cn.com/problems/reformat-department-table/)  
 
@@ -49,9 +52,28 @@ score表（s_id,c_id,s_score）三列，分别表示（学号，课程号，成�
 SELECT s.c_id,s.s_id,s.s_score 
 FROM score s
 WHERE 2>(
-SELECT COUNT( s2.s_score)
+SELECT COUNT(distinct s2.s_score)
 FROM score s2 
 WHERE s2.`c_id`=s.`c_id` AND s2.`s_score`>s.`s_score`
 )
  ORDER BY s.`c_id` ASC, s.`s_score` DESC;
+```
+
+```
+查询中国各地区人口前三的城市。表是MySQL自带的World库中的city
+SELECT c1.* FROM city AS c1 WHERE c1.`CountryCode` = 'CHN' AND  3> (
+SELECT COUNT(c2.`Population`) FROM city AS c2 
+WHERE c2.`CountryCode`=c1.`CountryCode` AND c1.`District`=c2.`District` AND c2.`Population`>c1.`Population`
+) ORDER BY c1.`District`,c1.`Population`;
+```
+
+```
+SELECT c1.* FROM city AS c1 WHERE c1.district IN 
+(SELECT district FROM city WHERE countrycode='CHN' GROUP BY district HAVING SUM(Population)>5000000
+)
+ AND  3> (
+SELECT COUNT(c2.`Population`) FROM city AS c2 
+WHERE c2.`CountryCode`=c1.`CountryCode` AND c1.`District`=c2.`District` AND c2.`Population`>c1.`Population`
+)   
+ORDER BY c1.`District`,c1.`Population` DESC;
 ```
