@@ -1,6 +1,7 @@
 - [java](#java)
   - [六种数字类型](#六种数字类型)
   - [java中的多态](#java中的多态)
+  - [wait与sleep的区别](#wait与sleep的区别)
   - [hashCode equals](#hashcode-equals)
   - [==](#)
   - [volatile详解](#volatile详解)
@@ -87,6 +88,16 @@ void func(double a){} //最末
 
 java为类型在方法区中建立一个虚方法表，使用虚方法表索引来代替元数据查找以提高性能，虚方法表中存放着各个方法的实际入口地址。如果某个方法在子类中没有被重写，那子类的虚方法表中的地址入口和父类相同方法的地址入口是一致的，都指向父类的实现入口。如果子类中重写了这个方法，子类虚方法表中的地址也会被替换为指向子类实现版本的入口地址。  
 具有相同签名的方法，在父类、子类的虚方法表中都应当具有一样的索引序号，这样当类型变换时，仅需要变更查找的虚方法表，就可以从不同的虚方法表中按索引转换出所需的入口地址。虚方法表一般在类加载的连接阶段进行初始化，准备了类的变量初始值后，虚拟机会把该类的虚方法表也一同初始化完毕。  
+
+
+## wait与sleep的区别  
+wait是Object类的方法，sleep是Tread类的方法。  
+wait是实例方法，sleep是静态方法。  
+wait释放对象锁，sleep不释放对象锁。  
+wait后通过notify或notifyall唤醒，sleep后到时间或interrupt唤醒。  
+wait只能在同步方法或者同步控制块中使用，sleep可以在任何地方使用。  
+sleep会抛出受查异常（需要声明抛出或捕获），wait不用。  
+wait针对对象本身，sleep针对线程。  
 
 
 ## hashCode equals  
@@ -473,7 +484,7 @@ public class SingleTon {
 </details>
 
 
-3、double check 双所检测：在构造方法中对类加锁，加锁前后两次检测是否为null  
+3、double check 双锁检测：在构造方法中对类加锁，加锁前后两次检测是否为null  
 
 <details>
         <summary>点击查看</summary>
