@@ -289,6 +289,13 @@ ThreadPoolExecutor的实例执行任务的方法有：
 
 Future的get方法在提交的任务完成前会阻塞调用的线程。  
 
+线程池状态：  
+1、Running。正常接收执行任务。  
+2、Shutdown。不接受新任务，正常执行已接受的任务。调用shutdown方法后出现。  
+3、Stop。不接受新任务，不执行已接受任务，中断正在执行的任务。调用shutdownNow方法后出现。  
+4、Tidying。shutdown后执行完已接受的任务会变成这种状态。  
+5、TERMINATED。线程池彻底终止。TIDYING状态时，执行完terminated之后出现。  
+
 ## jvm->GC  
 年轻代，老年代，元空间。  
 年轻代：eden survivor1、2区（8：1：1），新对象会先放入eden，eden满时会minor gc，垃圾回收器都是复制清除算法。  
